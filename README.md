@@ -16,13 +16,13 @@ rewarding repeated information.
 
 ## What you can do
 
-- Start with an edge-failure or cloud-cost example.
+- Start with a guided device-reliability or cloud-operations question.
 - Upload a CSV for binary classification or regression.
 - Choose exactly how many features to keep.
-- Adjust how strongly repeated information should be avoided.
 - Compare the chosen set with a simple ranking and the full dataset.
-- Explore the score-by-size chart, search progress, selected features, and
-  interaction map.
+- See each chosen input, its connection to the target, and its overlap with the
+  rest of the set.
+- Open the optional settings and technical charts only when you need them.
 - Download the complete result or its reusable optimization matrix.
 
 Uploads are processed in memory and are not saved by the application.
@@ -76,14 +76,29 @@ py -m qubolens.server
 
 Then open [http://localhost:8080](http://localhost:8080).
 
+## Use the guided examples
+
+1. Choose **Device reliability** or **Cloud operations**.
+2. Use the slider to choose how many inputs you want to keep. Six is a useful
+   starting point.
+3. Select **Show me the best inputs**.
+4. Read the result from top to bottom: the clear answer, the score, the chosen
+   inputs, and the fair comparison.
+5. Open **Explore how the result was found** only if you want the search charts
+   or reusable matrix.
+
+For a yes-or-no prediction, the app reports ROC AUC: `0.50` is random ordering
+and `1.00` is perfect ordering. For a numeric prediction, it reports R²: `0.00`
+matches always predicting the average and `1.00` is perfect.
+
 ## Use your own data
 
 In the web app:
 
-1. Select **Drop a numeric CSV**.
+1. Open **Use my own CSV** and choose a file.
 2. Choose the column you want to predict.
 3. Set the number of features to keep.
-4. Press **Find my feature set**.
+4. Select **Analyze the best inputs**.
 
 CSV limits:
 

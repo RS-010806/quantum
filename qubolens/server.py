@@ -78,7 +78,8 @@ class QUBOLensHandler(BaseHTTPRequestHandler):
                     "datasets": [
                         {
                             "slug": "edge-failure",
-                            "name": "Edge device failure",
+                            "name": "Device failure risk",
+                            "question": "Will this device fail within the next 24 hours?",
                             "task": "classification",
                             "samples": 720,
                             "features": 18,
@@ -86,7 +87,8 @@ class QUBOLensHandler(BaseHTTPRequestHandler):
                         },
                         {
                             "slug": "cloud-cost",
-                            "name": "Cloud inference cost",
+                            "name": "Cloud workload cost",
+                            "question": "What drives this workload's hourly cloud cost?",
                             "task": "regression",
                             "samples": 680,
                             "features": 16,

@@ -51,28 +51,28 @@
           </p>
           <h1 id="hero-title">Keep the signal.<br /><em>Drop the extras.</em></h1>
           <p class="hero-lede">
-            QUBOLens helps you choose a smaller set of model inputs without losing
-            sight of predictive quality. Try a sample dataset or upload a CSV,
-            choose your limit, and see exactly what changes.
+            Start with a guided example. Choose how many inputs to keep. QUBOLens
+            shows which ones it chose, whether quality changed, and why the result
+            matters.
           </p>
           <div class="hero-actions">
-            <a class="primary-button" href="#lab">Try the live lab</a>
+            <a class="primary-button" href="#lab">Start a guided example</a>
             <a class="text-link" href="#premise">
               Why this matters <span aria-hidden="true">↘</span>
             </a>
           </div>
           <dl class="hero-facts" aria-label="Project facts">
             <div>
+              <dt>3</dt>
+              <dd>simple steps</dd>
+            </div>
+            <div>
               <dt>2</dt>
-              <dd>sample datasets</dd>
+              <dd>guided examples</dd>
             </div>
             <div>
-              <dt>40</dt>
-              <dd>feature limit</dd>
-            </div>
-            <div>
-              <dt>5×</dt>
-              <dd>score comparison</dd>
+              <dt>1</dt>
+              <dd>clear result</dd>
             </div>
           </dl>
         </div>
@@ -108,24 +108,51 @@
       <section class="lab-section" id="lab" aria-labelledby="lab-title">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Interactive lab</p>
-            <h2 id="lab-title">Choose a smaller, stronger feature set.</h2>
+            <p class="eyebrow">Guided feature selection</p>
+            <h2 id="lab-title">Pick a question.<br />We explain the rest.</h2>
           </div>
           <p>
-            Set how many features you want to keep. We will look for a useful mix
-            without paying twice for the same signal.
+            The defaults are ready to use. Start with either example, then read the
+            answer from top to bottom.
           </p>
         </div>
+
+        <ol class="journey-strip" aria-label="How to use QUBOLens">
+          <li>
+            <span>1</span>
+            <div>
+              <strong>Choose a question</strong>
+              <small>Start with either guided example.</small>
+            </div>
+          </li>
+          <li>
+            <span>2</span>
+            <div>
+              <strong>Set your input limit</strong>
+              <small>Six is a useful starting point.</small>
+            </div>
+          </li>
+          <li>
+            <span>3</span>
+            <div>
+              <strong>Run and read top to bottom</strong>
+              <small>Answer first, technical detail last.</small>
+            </div>
+          </li>
+        </ol>
 
         <div class="workbench">
           <aside class="control-panel" aria-label="Experiment controls">
             <div class="panel-kicker">
-              <span>Experiment controls</span>
-              <span class="status-badge">Private by design</span>
+              <span>Start here</span>
+              <span class="status-badge">Defaults ready</span>
             </div>
+            <p class="control-intro">
+              Choose a question, decide how many inputs to keep, and run it.
+            </p>
 
             <fieldset>
-              <legend>01 · Choose data</legend>
+              <legend>1 · Choose a question</legend>
               <div class="dataset-options">
                 <button
                   class="dataset-option active"
@@ -134,10 +161,11 @@
                   data-features="18"
                   aria-pressed="true"
                 >
-                  <span class="dataset-icon lavender" aria-hidden="true">EF</span>
-                  <span>
-                    <strong>Edge failure</strong>
-                    <small>Classification · 18 signals</small>
+                  <span class="dataset-icon lavender" aria-hidden="true">01</span>
+                  <span class="dataset-option-copy">
+                    <small>Device reliability</small>
+                    <strong>Will this device fail soon?</strong>
+                    <em>Predict failure within 24 hours</em>
                   </span>
                   <span class="radio-mark" aria-hidden="true"></span>
                 </button>
@@ -148,33 +176,68 @@
                   data-features="16"
                   aria-pressed="false"
                 >
-                  <span class="dataset-icon amber" aria-hidden="true">CC</span>
-                  <span>
-                    <strong>Cloud cost</strong>
-                    <small>Regression · 16 signals</small>
+                  <span class="dataset-icon amber" aria-hidden="true">02</span>
+                  <span class="dataset-option-copy">
+                    <small>Cloud operations</small>
+                    <strong>What drives hourly cost?</strong>
+                    <em>Estimate cost from workload signals</em>
                   </span>
                   <span class="radio-mark" aria-hidden="true"></span>
                 </button>
               </div>
-              <div class="or-rule"><span>or bring your data</span></div>
-              <label class="upload-zone" for="csv-file">
-                <input id="csv-file" type="file" accept=".csv,text/csv" />
-                <span class="upload-plus" aria-hidden="true">+</span>
-                <span>
-                  <strong id="upload-label">Drop a numeric CSV</strong>
-                  <small>≤ 2.5 MB · processed in memory</small>
-                </span>
-              </label>
-              <div class="target-control hidden" id="target-control">
-                <label for="target-column">Target column</label>
-                <select id="target-column"></select>
-              </div>
             </fieldset>
 
+            <article class="scenario-guide" id="scenario-guide">
+              <span class="scenario-label">What is happening?</span>
+              <h3 id="scenario-question">
+                Which sensor readings help predict a device failure?
+              </h3>
+              <p id="scenario-description">
+                This simulated dataset contains 720 device snapshots. Each snapshot
+                has 18 sensor readings, and the goal is to predict whether that device
+                fails within the next 24 hours.
+              </p>
+              <dl class="scenario-facts">
+                <div>
+                  <dt id="scenario-rows">720</dt>
+                  <dd id="scenario-rows-label">device snapshots</dd>
+                </div>
+                <div>
+                  <dt id="scenario-inputs">18</dt>
+                  <dd id="scenario-inputs-label">sensor readings</dd>
+                </div>
+                <div>
+                  <dt id="scenario-target">Yes / no</dt>
+                  <dd id="scenario-target-label">prediction</dd>
+                </div>
+              </dl>
+            </article>
+
+            <details class="upload-disclosure">
+              <summary>
+                <span>Use my own CSV</span>
+                <small>Optional</small>
+              </summary>
+              <div class="upload-content">
+                <label class="upload-zone" for="csv-file">
+                  <input id="csv-file" type="file" accept=".csv,text/csv" />
+                  <span class="upload-plus" aria-hidden="true">+</span>
+                  <span>
+                    <strong id="upload-label">Choose a CSV file</strong>
+                    <small>30–2,500 rows · up to 40 inputs · kept in memory</small>
+                  </span>
+                </label>
+                <div class="target-control hidden" id="target-control">
+                  <label for="target-column">What should QUBOLens predict?</label>
+                  <select id="target-column"></select>
+                </div>
+              </div>
+            </details>
+
             <fieldset>
-              <legend>02 · Set your limit</legend>
+              <legend>2 · Choose how many inputs to keep</legend>
               <div class="range-heading">
-                <label for="feature-budget">Features to keep</label>
+                <label for="feature-budget">Smaller input set</label>
                 <output id="feature-budget-value" for="feature-budget">6 / 18</output>
               </div>
               <input
@@ -185,45 +248,58 @@
                 max="18"
                 value="6"
               />
-              <div class="range-scale"><span>lean</span><span>more signal</span></div>
+              <div class="range-scale"><span>fewer inputs</span><span>more inputs</span></div>
+              <p class="budget-help" id="budget-help">
+                Keep 6 of 18 inputs. QUBOLens will try to remove 12 without losing
+                useful signal.
+              </p>
             </fieldset>
 
-            <fieldset>
-              <legend>03 · Tune the mix</legend>
-              <div class="range-heading">
-                <label for="redundancy-weight">Avoid repeated signal</label>
-                <output id="redundancy-value" for="redundancy-weight">0.65</output>
+            <details class="advanced-settings">
+              <summary>
+                <span>Optional settings</span>
+                <small>The defaults work well</small>
+              </summary>
+              <div class="advanced-content">
+                <div class="advanced-control">
+                  <div class="range-heading">
+                    <label for="redundancy-weight">Prefer less repeated information</label>
+                    <output id="redundancy-value" for="redundancy-weight">0.65</output>
+                  </div>
+                  <input
+                    id="redundancy-weight"
+                    class="range-input"
+                    type="range"
+                    min="0"
+                    max="1.5"
+                    value="0.65"
+                    step="0.05"
+                  />
+                  <p>
+                    Higher values favor features that add different information.
+                  </p>
+                </div>
+                <div class="advanced-control">
+                  <span class="advanced-label">Search effort</span>
+                  <div class="quality-options">
+                    <label><input type="radio" name="quality" value="fast" /> Quick</label>
+                    <label
+                      ><input type="radio" name="quality" value="balanced" checked />
+                      Balanced</label
+                    >
+                    <label><input type="radio" name="quality" value="deep" /> Thorough</label>
+                  </div>
+                  <p>Balanced is recommended for normal use.</p>
+                </div>
               </div>
-              <input
-                id="redundancy-weight"
-                class="range-input"
-                type="range"
-                min="0"
-                max="1.5"
-                value="0.65"
-                step="0.05"
-              />
-              <div class="range-scale"><span>relevance first</span><span>diversity first</span></div>
-            </fieldset>
-
-            <fieldset>
-              <legend>04 · Choose search depth</legend>
-              <div class="quality-options">
-                <label><input type="radio" name="quality" value="fast" /> Quick</label>
-                <label
-                  ><input type="radio" name="quality" value="balanced" checked />
-                  Balanced</label
-                >
-                <label><input type="radio" name="quality" value="deep" /> Thorough</label>
-              </div>
-            </fieldset>
+            </details>
 
             <button class="run-button" type="button" id="run-button">
-              <span id="run-button-label">Find my feature set</span>
+              <span id="run-button-label">Show me the best 6 inputs</span>
               <span class="button-arrow" aria-hidden="true">↗</span>
             </button>
             <p class="control-footnote">
-              Your upload stays in memory and disappears after the run.
+              A device-failure result is already shown. Change anything and run again.
             </p>
           </aside>
 
@@ -234,11 +310,14 @@
                   <span class="pulse-dot" aria-hidden="true"></span>
                   Preparing your first result
                 </span>
-                <h3 id="result-title">Edge device failure</h3>
+                <h3 id="result-title">Will this device fail soon?</h3>
+                <p class="result-question" id="result-question">
+                  Finding a smaller set of sensor readings that still predicts
+                  failure within 24 hours.
+                </p>
               </div>
               <div class="export-actions">
-                <button type="button" id="download-result" disabled>Download report</button>
-                <button type="button" id="download-qubo" disabled>Technical matrix</button>
+                <button type="button" id="download-result" disabled>Download result</button>
               </div>
             </div>
 
@@ -251,148 +330,194 @@
             </div>
 
             <div class="results-content loading-soft" id="results-content">
-              <div class="metrics-grid">
-                <article class="metric-card feature-metric">
-                  <span class="metric-label">Features kept</span>
-                  <strong id="metric-features">—</strong>
-                  <span class="metric-note" id="metric-reduction">waiting for run</span>
-                </article>
-                <article class="metric-card">
-                  <span class="metric-label" id="metric-score-label">Model score</span>
-                  <strong id="metric-score">—</strong>
-                  <span class="metric-note" id="metric-score-delta">vs. top relevance</span>
-                </article>
-                <article class="metric-card">
-                  <span class="metric-label">Search space</span>
-                  <strong id="metric-space">—</strong>
-                  <span class="metric-note">possible combinations</span>
-                </article>
-                <article class="metric-card">
-                  <span class="metric-label">Run time</span>
-                  <strong id="metric-runtime">—</strong>
-                  <span class="metric-note">including model checks</span>
-                </article>
-              </div>
-
               <article class="finding-card">
-                <div class="finding-index">OBSERVATION <span>01</span></div>
+                <div class="finding-index">CLEAR ANSWER <span>01</span></div>
                 <div>
-                  <h4 id="finding-title">Finding a strong feature mix.</h4>
+                  <h4 id="finding-title">Finding the clearest answer.</h4>
                   <p id="finding-copy">
-                    The run will compare QUBOLens with a simple feature ranking under
-                    the same limit.
+                    QUBOLens is checking whether a smaller, less repetitive input set
+                    keeps the same predictive quality.
+                  </p>
+                  <p class="score-explainer" id="score-explainer">
+                    The score explanation will appear here.
                   </p>
                 </div>
                 <div class="finding-seal" aria-hidden="true">Q</div>
               </article>
 
-              <div class="chart-grid">
-                <article class="chart-card pareto-card">
-                  <div class="card-heading">
-                    <div>
-                      <span class="card-kicker">Model quality × fewer inputs</span>
-                      <h4>Feature limit comparison</h4>
-                    </div>
-                    <div class="legend" aria-label="Chart legend">
-                      <span><i class="legend-qubo"></i>QUBOLens</span>
-                      <span><i class="legend-greedy"></i>Simple ranking</span>
-                    </div>
-                  </div>
-                  <canvas id="pareto-chart" aria-label="Model score by feature budget"></canvas>
+              <div class="metrics-grid">
+                <article class="metric-card feature-metric">
+                  <span class="metric-label">Inputs kept</span>
+                  <strong id="metric-features">—</strong>
+                  <span class="metric-note" id="metric-reduction">waiting for run</span>
                 </article>
-
-                <article class="chart-card energy-card">
-                  <div class="card-heading">
-                    <div>
-                      <span class="card-kicker">How the search improved</span>
-                      <h4>Best score found over time</h4>
-                    </div>
-                    <span class="mono mini-stat" id="anneal-stat">— attempts</span>
-                  </div>
-                  <canvas id="energy-chart" aria-label="Best search score over time"></canvas>
+                <article class="metric-card">
+                  <span class="metric-label" id="metric-score-label">Exploration score</span>
+                  <strong id="metric-score">—</strong>
+                  <span class="metric-note" id="metric-score-note">higher is better</span>
+                </article>
+                <article class="metric-card">
+                  <span class="metric-label">Compared with simple ranking</span>
+                  <strong id="metric-score-delta">—</strong>
+                  <span class="metric-note">same number of inputs</span>
                 </article>
               </div>
 
-              <div class="detail-grid">
-                <article class="selection-card">
-                  <div class="card-heading">
-                    <div>
-                      <span class="card-kicker">Your result</span>
-                      <h4>Chosen features</h4>
-                    </div>
-                    <span class="mono mini-stat" id="energy-value">— selected</span>
+              <article class="selection-card">
+                <div class="card-heading">
+                  <div>
+                    <span class="card-kicker">The inputs QUBOLens kept</span>
+                    <h4 id="selection-title">Six readings worth keeping</h4>
                   </div>
-                  <div class="feature-cloud" id="feature-cloud">
-                    <span class="feature-pill placeholder">awaiting selection</span>
+                  <span class="mono mini-stat" id="energy-value">— selected</span>
+                </div>
+                <p class="card-intro">
+                  Each card shows how strongly an input connects to the target and
+                  how much information it repeats from the other chosen inputs.
+                </p>
+                <div class="feature-cloud" id="feature-cloud">
+                  <span class="feature-pill placeholder">awaiting selection</span>
+                </div>
+                <div class="selection-stats">
+                  <div>
+                    <span>Inputs removed</span>
+                    <strong id="proxy-ops">—</strong>
+                    <small>less data to collect</small>
                   </div>
-                  <div class="selection-stats">
-                    <div>
-                      <span>Target connection</span>
-                      <strong id="avg-relevance">—</strong>
-                    </div>
-                    <div>
-                      <span>Feature overlap</span>
-                      <strong id="avg-redundancy">—</strong>
-                    </div>
-                    <div>
-                      <span>Input work</span>
-                      <strong id="proxy-ops">—</strong>
-                    </div>
+                  <div>
+                    <span>Average target link</span>
+                    <strong id="avg-relevance">—</strong>
+                    <small>higher is stronger</small>
                   </div>
-                </article>
+                  <div>
+                    <span>Average overlap</span>
+                    <strong id="avg-redundancy">—</strong>
+                    <small>lower is better</small>
+                  </div>
+                </div>
+              </article>
 
-                <article class="matrix-card">
-                  <div class="card-heading">
-                    <div>
-                      <span class="card-kicker">Behind the scenes</span>
-                      <h4>Feature interaction map</h4>
-                    </div>
-                    <span class="mono mini-stat" id="matrix-stat">— variables</span>
+              <article class="chart-card pareto-card primary-chart">
+                <div class="card-heading">
+                  <div>
+                    <span class="card-kicker">Does keeping more inputs improve the score?</span>
+                    <h4>Quality at different input limits</h4>
                   </div>
-                  <canvas id="qubo-chart" aria-label="Map of feature interactions"></canvas>
-                </article>
-              </div>
+                  <div class="legend" aria-label="Chart legend">
+                    <span><i class="legend-qubo"></i>QUBOLens</span>
+                    <span><i class="legend-greedy"></i>Simple ranking</span>
+                  </div>
+                </div>
+                <canvas id="pareto-chart" aria-label="Model score by number of inputs"></canvas>
+                <p class="chart-explainer">
+                  Each point is a new run with that many inputs. Higher on the chart
+                  means a stronger exploration score.
+                </p>
+              </article>
 
               <article class="benchmark-card">
                 <div class="card-heading">
                   <div>
-                    <span class="card-kicker">Same data splits, same simple model</span>
-                    <h4>Fair comparison</h4>
+                    <span class="card-kicker">Same data and same model for every row</span>
+                    <h4>Is the smaller set actually useful?</h4>
                   </div>
-                  <span class="honesty-tag">for exploration, not final validation</span>
+                  <span class="honesty-tag">fair comparison</span>
                 </div>
                 <div class="benchmark-table" role="table" aria-label="Method comparison">
                   <div class="benchmark-row benchmark-head" role="row">
-                    <span role="columnheader">Method</span>
-                    <span role="columnheader">Features</span>
+                    <span role="columnheader">Approach</span>
+                    <span role="columnheader">Inputs</span>
                     <span role="columnheader" id="benchmark-score-label">Score</span>
-                    <span role="columnheader">Input work</span>
+                    <span role="columnheader">Data used</span>
                   </div>
                   <div class="benchmark-row highlighted" role="row">
-                    <span role="cell"><i class="method-mark qubo"></i>QUBOLens</span>
+                    <span role="cell" class="method-name"
+                      ><i class="method-mark qubo"></i
+                      ><span><strong>QUBOLens</strong><small>value + overlap</small></span></span
+                    >
                     <span role="cell" id="bench-qubo-k">—</span>
                     <strong role="cell" id="bench-qubo-score">—</strong>
                     <span role="cell" id="bench-qubo-ops">—</span>
                   </div>
                   <div class="benchmark-row" role="row">
-                    <span role="cell"
-                      ><i class="method-mark greedy"></i>Simple ranking</span
+                    <span role="cell" class="method-name"
+                      ><i class="method-mark greedy"></i
+                      ><span><strong>Simple ranking</strong><small>value alone</small></span></span
                     >
                     <span role="cell" id="bench-greedy-k">—</span>
                     <strong role="cell" id="bench-greedy-score">—</strong>
                     <span role="cell" id="bench-greedy-ops">—</span>
                   </div>
                   <div class="benchmark-row" role="row">
-                    <span role="cell"><i class="method-mark all"></i>All features</span>
+                    <span role="cell" class="method-name"
+                      ><i class="method-mark all"></i
+                      ><span><strong>Everything</strong><small>no reduction</small></span></span
+                    >
                     <span role="cell" id="bench-all-k">—</span>
                     <strong role="cell" id="bench-all-score">—</strong>
                     <span role="cell" id="bench-all-ops">—</span>
                   </div>
                 </div>
                 <p class="caveat" id="caveat">
-                  Results will include the evaluation caveat here.
+                  Use this result to explore a direction, then confirm it on new data.
                 </p>
               </article>
+
+              <details class="result-details" id="result-details">
+                <summary>
+                  <span>
+                    <strong>Explore how the result was found</strong>
+                    <small>Search progress, interaction map, and technical download</small>
+                  </span>
+                  <span class="details-plus" aria-hidden="true">+</span>
+                </summary>
+                <div class="result-details-content">
+                  <div class="run-facts">
+                    <div>
+                      <span>Possible feature sets</span>
+                      <strong id="metric-space">—</strong>
+                    </div>
+                    <div>
+                      <span>Run time</span>
+                      <strong id="metric-runtime">—</strong>
+                    </div>
+                    <div>
+                      <span>Search effort</span>
+                      <strong id="anneal-stat">— attempts</strong>
+                    </div>
+                  </div>
+                  <div class="chart-grid">
+                    <article class="chart-card energy-card">
+                      <div class="card-heading">
+                        <div>
+                          <span class="card-kicker">Search progress</span>
+                          <h4>Best option found over time</h4>
+                        </div>
+                      </div>
+                      <canvas id="energy-chart" aria-label="Best search result over time"></canvas>
+                    </article>
+                    <article class="matrix-card">
+                      <div class="card-heading">
+                        <div>
+                          <span class="card-kicker">Feature relationships</span>
+                          <h4>Interaction map</h4>
+                        </div>
+                        <span class="mono mini-stat" id="matrix-stat">— inputs</span>
+                      </div>
+                      <canvas id="qubo-chart" aria-label="Map of feature interactions"></canvas>
+                    </article>
+                  </div>
+                  <div class="technical-download">
+                    <div>
+                      <strong>Want the reusable optimization file?</strong>
+                      <p>Download it only if you want to inspect or reuse the matrix.</p>
+                    </div>
+                    <button type="button" id="download-qubo" disabled>
+                      Download technical matrix
+                    </button>
+                  </div>
+                </div>
+              </details>
             </div>
           </div>
         </div>

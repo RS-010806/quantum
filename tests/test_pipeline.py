@@ -28,6 +28,8 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(result["qubo"]["export"]["format"], "QUBO")
         self.assertEqual(len(result["qubo"]["matrix"]), 4)
         self.assertIn("finding", result["insight"])
+        self.assertIn("score_explanation", result["insight"])
+        self.assertIn("question", result["dataset"])
         self.assertEqual(result["runtime"]["dependencies"], 0)
 
 

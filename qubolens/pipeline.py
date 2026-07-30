@@ -120,9 +120,9 @@ def optimize_dataset(
             greedy_indices = sorted(
                 range(dataset.n_features), key=lambda i: relevance[i], reverse=True
             )[:frontier_k]
-            q_metrics = evaluate_subset(dataset, q_indices, folds=4, seed=seed + 49)
+            q_metrics = evaluate_subset(dataset, q_indices, folds=5, seed=seed + 49)
             g_metrics = evaluate_subset(
-                dataset, greedy_indices, folds=4, seed=seed + 49
+                dataset, greedy_indices, folds=5, seed=seed + 49
             )
         for method, indices, metrics in (
             ("QUBO", q_indices, q_metrics),
@@ -169,6 +169,13 @@ def optimize_dataset(
     score_delta = float(selected_metrics["score"]) - float(greedy_metrics["score"])
     reduction = 100 * (1 - k / dataset.n_features)
     elapsed_ms = (time.perf_counter() - started) * 1000
+    score_explanation = (
+        "ROC AUC checks whether failing devices rank above healthy ones. "
+        "0.50 is random ordering; 1.00 is perfect ordering."
+        if dataset.task == "classification"
+        else "R² checks how much of the cost variation the model explains. "
+        "1.00 is perfect; 0.00 is no better than always predicting the average."
+    )
 
     if score_delta >= 0.002 and qubo_redundancy < greedy_redundancy:
         finding = (
@@ -194,6 +201,9 @@ def optimize_dataset(
             "samples": dataset.n_samples,
             "features": dataset.n_features,
             "notes": list(dataset.notes),
+            "question": dataset.question or f"Which inputs best predict {dataset.target_name}?",
+            "description": dataset.description,
+            "target_description": dataset.target_description,
         },
         "selection": {
             "k": k,
@@ -219,6 +229,7 @@ def optimize_dataset(
             "redundancy_delta_vs_greedy": round(
                 qubo_redundancy - greedy_redundancy, 6
             ),
+            "score_explanation": score_explanation,
             "premise": (
                 "Quantum ideas can be useful before quantum hardware is: the first "
                 "step is framing a messy feature choice as a clear optimization "

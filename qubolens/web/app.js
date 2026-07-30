@@ -8,6 +8,31 @@ const state = {
   running: false,
 };
 
+const SCENARIOS = {
+  "edge-failure": {
+    question: "Which sensor readings help predict a device failure?",
+    description:
+      "This simulated dataset contains 720 device snapshots. Each snapshot has 18 sensor readings, and the goal is to predict whether that device fails within the next 24 hours.",
+    rows: "720",
+    rowsLabel: "device snapshots",
+    inputs: "18",
+    inputsLabel: "sensor readings",
+    target: "Yes / no",
+    targetLabel: "prediction",
+  },
+  "cloud-cost": {
+    question: "Which workload signals help explain hourly cloud cost?",
+    description:
+      "This simulated dataset contains 680 hourly workload records. Each record has 16 service signals, and the goal is to estimate its hourly cost in US dollars.",
+    rows: "680",
+    rowsLabel: "hourly workloads",
+    inputs: "16",
+    inputsLabel: "service signals",
+    target: "US dollars",
+    targetLabel: "prediction",
+  },
+};
+
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
@@ -20,6 +45,7 @@ const elements = {
   runLabel: $("#run-button-label"),
   resultStatus: $("#result-status"),
   resultTitle: $("#result-title"),
+  resultQuestion: $("#result-question"),
   progressShell: $("#progress-shell"),
   progressBar: $("#progress-bar"),
   progressLabel: $("#progress-label"),
@@ -30,6 +56,16 @@ const elements = {
   targetControl: $("#target-control"),
   target: $("#target-column"),
   results: $(".results-panel"),
+  budgetHelp: $("#budget-help"),
+  scenarioQuestion: $("#scenario-question"),
+  scenarioDescription: $("#scenario-description"),
+  scenarioRows: $("#scenario-rows"),
+  scenarioRowsLabel: $("#scenario-rows-label"),
+  scenarioInputs: $("#scenario-inputs"),
+  scenarioInputsLabel: $("#scenario-inputs-label"),
+  scenarioTarget: $("#scenario-target"),
+  scenarioTargetLabel: $("#scenario-target-label"),
+  resultDetails: $("#result-details"),
 };
 
 function setRangeProgress(input) {
@@ -41,13 +77,49 @@ function setRangeProgress(input) {
 }
 
 function updateBudgetLabel() {
-  elements.budgetValue.textContent = `${elements.budget.value} / ${elements.budget.max}`;
+  const kept = Number(elements.budget.value);
+  const total = Number(elements.budget.max);
+  elements.budgetValue.textContent = `${kept} / ${total}`;
+  elements.budgetHelp.textContent =
+    kept === total
+      ? `Keep all ${total} inputs. Lower the slider to test a smaller set.`
+      : `Keep ${kept} of ${total} inputs. QUBOLens will try to remove ${
+          total - kept
+        } without losing useful signal.`;
+  updateRunLabel();
   setRangeProgress(elements.budget);
+}
+
+function updateRunLabel() {
+  if (state.running) return;
+  const kept = Number(elements.budget.value);
+  elements.runLabel.textContent =
+    state.source === "csv"
+      ? `Analyze the best ${kept} inputs`
+      : `Show me the best ${kept} inputs`;
+}
+
+function updateScenario(scenario) {
+  elements.scenarioQuestion.textContent = scenario.question;
+  elements.scenarioDescription.textContent = scenario.description;
+  elements.scenarioRows.textContent = scenario.rows;
+  elements.scenarioRowsLabel.textContent = scenario.rowsLabel;
+  elements.scenarioInputs.textContent = scenario.inputs;
+  elements.scenarioInputsLabel.textContent = scenario.inputsLabel;
+  elements.scenarioTarget.textContent = scenario.target;
+  elements.scenarioTargetLabel.textContent = scenario.targetLabel;
+}
+
+function markSettingsChanged(message = "Settings ready · run to update") {
+  if (!state.result || state.running) return;
+  elements.resultStatus.innerHTML =
+    `<span class="pulse-dot" aria-hidden="true"></span>${message}`;
 }
 
 function updateRedundancyLabel() {
   elements.redundancyValue.textContent = Number(elements.redundancy.value).toFixed(2);
   setRangeProgress(elements.redundancy);
+  markSettingsChanged();
 }
 
 function selectDemo(button) {
@@ -62,11 +134,13 @@ function selectDemo(button) {
   state.csvText = "";
   state.headers = [];
   elements.file.value = "";
-  elements.uploadLabel.textContent = "Drop a numeric CSV";
+  elements.uploadLabel.textContent = "Choose a CSV file";
   elements.targetControl.classList.add("hidden");
   elements.budget.max = button.dataset.features;
   elements.budget.value = Math.min(6, Number(button.dataset.features));
+  updateScenario(SCENARIOS[state.dataset]);
   updateBudgetLabel();
+  markSettingsChanged();
 }
 
 function parseCSVLine(line) {
@@ -91,6 +165,28 @@ function parseCSVLine(line) {
   }
   values.push(value.trim());
   return values;
+}
+
+function updateUploadedScenario() {
+  if (state.source !== "csv") return;
+  const target = elements.target.value || state.headers[state.headers.length - 1];
+  const rowCount = Math.max(
+    0,
+    state.csvText.split(/\r?\n/).filter((line) => line.trim()).length - 1,
+  );
+  updateScenario({
+    question: `Which inputs best predict ${humanizeFeatureName(target)}?`,
+    description:
+      `Your CSV contains ${rowCount.toLocaleString()} data rows and ` +
+      `${Math.max(0, state.headers.length - 1)} possible input columns. ` +
+      "Choose what to predict, then QUBOLens will test a smaller input set.",
+    rows: rowCount.toLocaleString(),
+    rowsLabel: "data rows",
+    inputs: String(Math.max(0, state.headers.length - 1)),
+    inputsLabel: "possible inputs",
+    target: humanizeFeatureName(target),
+    targetLabel: "prediction target",
+  });
 }
 
 async function handleFile(file) {
@@ -133,9 +229,10 @@ async function handleFile(file) {
   elements.targetControl.classList.remove("hidden");
   elements.budget.max = Math.min(40, headers.length - 1);
   elements.budget.value = Math.min(6, Number(elements.budget.max));
+  updateUploadedScenario();
   updateBudgetLabel();
   elements.resultStatus.innerHTML =
-    '<span class="pulse-dot" aria-hidden="true"></span>CSV ready · choose target';
+    '<span class="pulse-dot" aria-hidden="true"></span>CSV ready · run to analyze';
 }
 
 function selectedQuality() {
@@ -222,7 +319,7 @@ async function runExperiment() {
   } finally {
     state.running = false;
     elements.run.disabled = false;
-    elements.runLabel.textContent = "Find my feature set";
+    updateRunLabel();
   }
 }
 
@@ -245,10 +342,42 @@ function formatSignedPoints(value) {
   return `${points >= 0 ? "+" : ""}${points.toFixed(1)} pts`;
 }
 
+function formatComparison(value) {
+  if (Math.abs(Number(value)) < 0.005) return "≈ same";
+  return formatSignedPoints(value);
+}
+
 function formatRuntime(milliseconds) {
   return milliseconds < 1000
     ? `${Math.round(milliseconds)} ms`
     : `${(milliseconds / 1000).toFixed(2)} s`;
+}
+
+function humanizeFeatureName(name) {
+  const acronyms = new Map([
+    ["cpu", "CPU"],
+    ["gb", "GB"],
+    ["iops", "IOPS"],
+    ["kb", "KB"],
+    ["p95", "P95"],
+    ["rms", "RMS"],
+    ["usd", "USD"],
+  ]);
+  const words = String(name || "")
+    .replace(/[_-]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => acronyms.get(word.toLowerCase()) || word.toLowerCase());
+  if (!words.length) return "Unnamed input";
+  const label = words.join(" ");
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function overlapDescription(value) {
+  if (value <= 0.15) return "low overlap";
+  if (value <= 0.35) return "some overlap";
+  return "high overlap";
 }
 
 function setText(selector, value) {
@@ -261,47 +390,79 @@ function renderResult(result) {
   elements.content.classList.remove("loading-soft");
   elements.resultStatus.innerHTML =
     '<span class="pulse-dot" aria-hidden="true"></span>Results ready';
-  elements.resultTitle.textContent = result.dataset.name;
-  setText("#metric-features", `${result.selection.k}/${result.dataset.features}`);
-  setText("#metric-reduction", `${result.selection.feature_reduction}% fewer inputs`);
-  setText("#metric-score-label", result.benchmark.qubo.score_label);
+  elements.resultTitle.textContent = result.dataset.question || result.dataset.name;
+  elements.resultQuestion.textContent =
+    result.dataset.description ||
+    `Finding a smaller input set for ${humanizeFeatureName(result.dataset.target)}.`;
+  setText("#metric-features", `${result.selection.k} of ${result.dataset.features}`);
+  setText(
+    "#metric-reduction",
+    `${result.dataset.features - result.selection.k} inputs removed`,
+  );
+  setText(
+    "#metric-score-label",
+    `${result.benchmark.qubo.score_label} exploration score`,
+  );
   setText("#metric-score", formatScore(result.benchmark.qubo.score));
   setText(
+    "#metric-score-note",
+    result.dataset.task === "classification"
+      ? "0.50 random · 1.00 perfect"
+      : "0.00 average guess · 1.00 perfect",
+  );
+  setText(
     "#metric-score-delta",
-    `${formatSignedPoints(result.insight.score_delta_vs_greedy)} vs. top relevance`,
+    formatComparison(result.insight.score_delta_vs_greedy),
   );
   setText("#metric-space", result.selection.search_space_label);
   setText("#metric-runtime", formatRuntime(result.runtime.total_ms));
+  const fullScoreDifference =
+    Number(result.benchmark.qubo.score) -
+    Number(result.benchmark.all_features.score);
+  const qualityMessage =
+    Math.abs(fullScoreDifference) < 0.015
+      ? "Quality stayed close to using every input."
+      : fullScoreDifference > 0
+        ? "Quality was stronger than using every input."
+        : "There is a visible quality trade-off at this smaller limit.";
   setText(
     "#finding-title",
-    result.insight.redundancy_delta_vs_greedy < -0.01
-      ? "A smaller set with less repetition."
-      : "The simple comparison tells the story.",
+    `Keep ${result.selection.k} inputs. ${qualityMessage}`,
   );
   setText("#finding-copy", result.insight.finding);
+  setText("#score-explainer", result.insight.score_explanation);
   setText(
     "#anneal-stat",
     `${result.annealing.reads} attempts · ${result.annealing.sweeps} steps`,
   );
   setText("#energy-value", `${result.selection.k} selected`);
-  setText("#avg-relevance", result.selection.average_relevance.toFixed(3));
-  setText("#avg-redundancy", result.selection.average_redundancy.toFixed(3));
   setText(
-    "#proxy-ops",
-    `${Math.round((result.selection.k / result.dataset.features) * 100)}%`,
+    "#selection-title",
+    `${result.selection.k} ${
+      result.selection.k === 1 ? "input" : "inputs"
+    } worth keeping`,
   );
-  setText(
-    "#matrix-stat",
-    `${result.dataset.features} features`,
-  );
+  setText("#avg-relevance", result.selection.average_relevance.toFixed(2));
+  setText("#avg-redundancy", result.selection.average_redundancy.toFixed(2));
+  setText("#proxy-ops", `${result.selection.feature_reduction}%`);
+  setText("#matrix-stat", `${result.dataset.features} inputs`);
 
   const cloud = $("#feature-cloud");
   cloud.replaceChildren();
   result.selection.names.forEach((name) => {
-    const pill = document.createElement("span");
-    pill.className = "feature-pill";
-    pill.textContent = name;
-    cloud.append(pill);
+    const feature = result.features.find((item) => item.name === name);
+    const card = document.createElement("article");
+    card.className = "feature-choice";
+    const heading = document.createElement("strong");
+    heading.textContent = humanizeFeatureName(name);
+    const detail = document.createElement("span");
+    detail.textContent = feature
+      ? `Target link ${Number(feature.relevance).toFixed(2)} · ${overlapDescription(
+          Number(feature.selected_redundancy),
+        )}`
+      : "Chosen for this feature mix";
+    card.append(heading, detail);
+    cloud.append(card);
   });
 
   setText("#benchmark-score-label", result.benchmark.qubo.score_label);
@@ -322,8 +483,10 @@ function renderResult(result) {
   $("#download-result").disabled = false;
   $("#download-qubo").disabled = false;
   drawPareto(result);
-  drawEnergy(result);
-  drawQubo(result);
+  if (elements.resultDetails.open) {
+    drawEnergy(result);
+    drawQubo(result);
+  }
 }
 
 function prepareCanvas(canvas) {
@@ -554,10 +717,17 @@ function drawHero(time = 0) {
   }
 }
 
-elements.budget.addEventListener("input", updateBudgetLabel);
+elements.budget.addEventListener("input", () => {
+  updateBudgetLabel();
+  markSettingsChanged();
+});
 elements.redundancy.addEventListener("input", updateRedundancyLabel);
 elements.run.addEventListener("click", runExperiment);
 elements.file.addEventListener("change", (event) => handleFile(event.target.files[0]));
+elements.target.addEventListener("change", () => {
+  updateUploadedScenario();
+  markSettingsChanged("Target changed · run to update");
+});
 $$(".dataset-option").forEach((button) =>
   button.addEventListener("click", () => selectDemo(button)),
 );
@@ -567,6 +737,14 @@ $("#download-result").addEventListener("click", () => {
 $("#download-qubo").addEventListener("click", () => {
   if (state.result) downloadJSON("qubolens-qubo.json", state.result.qubo.export);
 });
+elements.resultDetails.addEventListener("toggle", () => {
+  if (elements.resultDetails.open && state.result) {
+    window.requestAnimationFrame(() => {
+      drawEnergy(state.result);
+      drawQubo(state.result);
+    });
+  }
+});
 
 let resizeTimer;
 window.addEventListener("resize", () => {
@@ -574,12 +752,15 @@ window.addEventListener("resize", () => {
   resizeTimer = window.setTimeout(() => {
     if (state.result) {
       drawPareto(state.result);
-      drawEnergy(state.result);
-      drawQubo(state.result);
+      if (elements.resultDetails.open) {
+        drawEnergy(state.result);
+        drawQubo(state.result);
+      }
     }
   }, 120);
 });
 
+updateScenario(SCENARIOS[state.dataset]);
 updateBudgetLabel();
 updateRedundancyLabel();
 window.requestAnimationFrame(drawHero);

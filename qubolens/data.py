@@ -22,6 +22,9 @@ class Dataset:
     target_name: str
     task: str
     notes: tuple[str, ...] = ()
+    question: str = ""
+    description: str = ""
+    target_description: str = ""
 
     @property
     def n_samples(self) -> int:
@@ -124,7 +127,7 @@ def _edge_failure_demo() -> Dataset:
         )
         target.append(label)
     return Dataset(
-        name="Edge device failure",
+        name="Device failure risk",
         feature_names=names,
         rows=tuple(rows),
         target=tuple(target),
@@ -134,6 +137,12 @@ def _edge_failure_demo() -> Dataset:
             "Synthetic, seeded telemetry with informative, redundant, and noise sensors.",
             "The duplicated sensors make the relevance-versus-redundancy trade-off visible.",
         ),
+        question="Will this device fail within the next 24 hours?",
+        description=(
+            "A guided example using 720 simulated device snapshots and 18 sensor "
+            "readings to predict failure within 24 hours."
+        ),
+        target_description="A yes-or-no failure prediction",
     )
 
 
@@ -209,7 +218,7 @@ def _cloud_cost_demo() -> Dataset:
         )
         target.append(cost)
     return Dataset(
-        name="Cloud inference cost",
+        name="Cloud workload cost",
         feature_names=names,
         rows=tuple(rows),
         target=tuple(target),
@@ -219,6 +228,12 @@ def _cloud_cost_demo() -> Dataset:
             "Synthetic, seeded service telemetry for a cost-regression pipeline.",
             "Proxy metrics deliberately overlap so a non-redundant subset is useful.",
         ),
+        question="What drives this workload's hourly cloud cost?",
+        description=(
+            "A guided example using 680 simulated hourly workloads and 16 service "
+            "signals to estimate cost in US dollars."
+        ),
+        target_description="Estimated hourly cost in US dollars",
     )
 
 
@@ -351,4 +366,14 @@ def load_csv_dataset(
         target_name=target_name,
         task=selected_task,
         notes=tuple(notes),
+        question=f"Which inputs best predict {target_name}?",
+        description=(
+            f"Your uploaded dataset contains {len(records):,} rows and "
+            f"{len(kept_features)} usable inputs."
+        ),
+        target_description=(
+            "A yes-or-no outcome"
+            if selected_task == "classification"
+            else "A numeric outcome"
+        ),
     )
