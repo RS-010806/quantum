@@ -137,9 +137,11 @@ QUBOLens compares three choices:
 2. the top \(k\) features ranked individually;
 3. every available feature.
 
-All three use the same folds and model settings. Classification reports ROC
-AUC, accuracy, and log loss. Regression reports \(R^2\), mean absolute error,
-and root mean squared error.
+All three use the same repeatable 3-fold validation sample of up to 600 rows
+and the same model settings. The bounded validation sample keeps interactive
+runs responsive and its exact size is included in the response. Classification
+reports ROC AUC, accuracy, and log loss. Regression reports \(R^2\), mean
+absolute error, and root mean squared error.
 
 These are exploration scores. A final feature set should be confirmed on
 separate data.

@@ -126,6 +126,9 @@ dates become time values, categories become indicator columns, and free text
 becomes transparent length, word-count, vocabulary, digit, and common-keyword
 measures. Likely identifier columns are skipped.
 
+Every result comparison uses the same repeatable 3-fold validation sample of up
+to 600 prepared rows. The result panel shows the exact row count used.
+
 ## Command line
 
 Run an included example:

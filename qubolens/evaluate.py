@@ -60,19 +60,27 @@ def _prepare_fold(
     return transform(train_indices), transform(test_indices)
 
 
-def _fit_logistic(features: list[list[float]], target: list[float]) -> list[float]:
+def _fit_logistic(
+    features: list[list[float]],
+    target: list[float],
+    *,
+    epochs: int = 150,
+) -> list[float]:
     width = len(features[0])
     weights = [0.0] * (width + 1)
     learning_rate = 0.16
     regularization = 0.012
-    for epoch in range(150):
+    for epoch in range(max(1, epochs)):
         gradients = [0.0] * (width + 1)
         for row, label in zip(features, target):
-            prediction = _sigmoid(weights[0] + sum(w * x for w, x in zip(weights[1:], row)))
+            linear = weights[0]
+            for column in range(width):
+                linear += weights[column + 1] * row[column]
+            prediction = _sigmoid(linear)
             error = prediction - label
             gradients[0] += error
-            for column, value in enumerate(row, start=1):
-                gradients[column] += error * value
+            for column in range(width):
+                gradients[column + 1] += error * row[column]
         step = learning_rate / (1 + 0.012 * epoch)
         size = len(features)
         weights[0] -= step * gradients[0] / size
@@ -84,7 +92,10 @@ def _fit_logistic(features: list[list[float]], target: list[float]) -> list[floa
 
 
 def _fit_linear(
-    features: list[list[float]], target: list[float]
+    features: list[list[float]],
+    target: list[float],
+    *,
+    epochs: int = 190,
 ) -> tuple[list[float], float, float]:
     width = len(features[0])
     mean_target = sum(target) / len(target)
@@ -94,14 +105,16 @@ def _fit_linear(
     weights = [0.0] * (width + 1)
     learning_rate = 0.075
     regularization = 0.01
-    for epoch in range(190):
+    for epoch in range(max(1, epochs)):
         gradients = [0.0] * (width + 1)
         for row, label in zip(features, normalized):
-            prediction = weights[0] + sum(w * x for w, x in zip(weights[1:], row))
+            prediction = weights[0]
+            for column in range(width):
+                prediction += weights[column + 1] * row[column]
             error = prediction - label
             gradients[0] += error
-            for column, value in enumerate(row, start=1):
-                gradients[column] += error * value
+            for column in range(width):
+                gradients[column + 1] += error * row[column]
         step = learning_rate / (1 + 0.009 * epoch)
         size = len(features)
         weights[0] -= step * gradients[0] / size
@@ -110,6 +123,67 @@ def _fit_linear(
                 gradients[column] / size + regularization * weights[column]
             )
     return weights, mean_target, scale_target
+
+
+def _evaluation_indices(
+    target: list[float],
+    task: str,
+    max_samples: int | None,
+    seed: int,
+) -> list[int]:
+    """Choose a repeatable, representative validation sample."""
+
+    sample_count = len(target)
+    if max_samples is None or max_samples <= 0 or sample_count <= max_samples:
+        return list(range(sample_count))
+
+    generator = random.Random(seed)
+    if task != "classification":
+        indices = list(range(sample_count))
+        generator.shuffle(indices)
+        return sorted(indices[:max_samples])
+
+    groups: dict[float, list[int]] = {}
+    for index, label in enumerate(target):
+        groups.setdefault(label, []).append(index)
+    for indices in groups.values():
+        generator.shuffle(indices)
+
+    exact = {
+        label: max_samples * len(indices) / sample_count
+        for label, indices in groups.items()
+    }
+    quotas = {
+        label: min(len(indices), max(1, math.floor(exact[label])))
+        for label, indices in groups.items()
+    }
+
+    while sum(quotas.values()) < max_samples:
+        candidates = [
+            label for label, indices in groups.items() if quotas[label] < len(indices)
+        ]
+        if not candidates:
+            break
+        label = max(
+            candidates,
+            key=lambda value: (exact[value] - quotas[value], len(groups[value])),
+        )
+        quotas[label] += 1
+
+    while sum(quotas.values()) > max_samples:
+        candidates = [label for label in groups if quotas[label] > 1]
+        if not candidates:
+            break
+        label = max(
+            candidates,
+            key=lambda value: (quotas[value] - exact[value], quotas[value]),
+        )
+        quotas[label] -= 1
+
+    chosen: list[int] = []
+    for label, indices in groups.items():
+        chosen.extend(indices[: quotas[label]])
+    return sorted(chosen)
 
 
 def _auc(labels: list[float], scores: list[float]) -> float:
@@ -140,13 +214,21 @@ def evaluate_subset(
     *,
     folds: int = 5,
     seed: int = 91,
+    max_samples: int | None = None,
+    training_steps: int | None = None,
 ) -> dict[str, float | str | int]:
     """Evaluate a fixed subset with post-selection cross-validation."""
 
     if not feature_indices:
         raise ValueError("At least one feature is required for evaluation.")
-    rows = [list(row) for row in dataset.rows]
-    target = list(dataset.target)
+    selected_rows = _evaluation_indices(
+        dataset.target,
+        dataset.task,
+        max_samples=max_samples,
+        seed=seed,
+    )
+    rows = [list(dataset.rows[index]) for index in selected_rows]
+    target = [dataset.target[index] for index in selected_rows]
     fold_indices = _folds(target, dataset.task, folds, seed)
     observed: list[float] = []
     predicted: list[float] = []
@@ -161,16 +243,34 @@ def evaluate_subset(
         train_y = [target[index] for index in train_indices]
         test_y = [target[index] for index in test_indices]
         if dataset.task == "classification":
-            weights = _fit_logistic(train_x, train_y)
+            weights = _fit_logistic(
+                train_x,
+                train_y,
+                epochs=training_steps if training_steps is not None else 150,
+            )
             fold_predictions = [
-                _sigmoid(weights[0] + sum(w * x for w, x in zip(weights[1:], row)))
+                _sigmoid(
+                    weights[0]
+                    + sum(
+                        weights[column + 1] * row[column]
+                        for column in range(len(row))
+                    )
+                )
                 for row in test_x
             ]
         else:
-            weights, mean_target, scale_target = _fit_linear(train_x, train_y)
+            weights, mean_target, scale_target = _fit_linear(
+                train_x,
+                train_y,
+                epochs=training_steps if training_steps is not None else 190,
+            )
             fold_predictions = [
                 (
-                    weights[0] + sum(w * x for w, x in zip(weights[1:], row))
+                    weights[0]
+                    + sum(
+                        weights[column + 1] * row[column]
+                        for column in range(len(row))
+                    )
                 )
                 * scale_target
                 + mean_target
@@ -200,6 +300,7 @@ def evaluate_subset(
             "loss": log_loss,
             "loss_label": "Log loss",
             "cv_folds": folds,
+            "validation_samples": len(target),
             "fit_ms": elapsed_ms,
             "proxy_ops": 2 * len(feature_indices) + 1,
         }
@@ -217,6 +318,7 @@ def evaluate_subset(
         "loss": rmse,
         "loss_label": "RMSE",
         "cv_folds": folds,
+        "validation_samples": len(target),
         "fit_ms": elapsed_ms,
         "proxy_ops": 2 * len(feature_indices) + 1,
     }

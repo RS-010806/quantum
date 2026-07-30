@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import base64
 import binascii
+from collections import OrderedDict
+import copy
 import csv
+import hashlib
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import io
@@ -12,6 +15,7 @@ import json
 import mimetypes
 import os
 from pathlib import Path
+import threading
 import traceback
 from urllib.parse import unquote, urlparse
 
@@ -29,6 +33,53 @@ from .pipeline import optimize_dataset
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 WEB_ROOT = Path(__file__).resolve().parent / "web"
 MAX_BODY_BYTES = 28_000_000
+RESULT_CACHE_SIZE = 24
+_RESULT_CACHE: OrderedDict[str, dict[str, object]] = OrderedDict()
+_RESULT_CACHE_LOCK = threading.Lock()
+
+
+def _cache_key(
+    source_fingerprint: str,
+    payload: dict[str, object],
+) -> str:
+    settings = {
+        "source": source_fingerprint,
+        "target": str(payload.get("target", "")).strip(),
+        "task": str(payload.get("task", "auto")),
+        "name": str(payload.get("name", ""))[:80],
+        "k": int(payload.get("k", 6)),
+        "redundancy_weight": float(payload.get("redundancy_weight", 0.65)),
+        "quality": str(payload.get("quality", "balanced")),
+        "seed": int(payload.get("seed", 42)),
+    }
+    encoded = json.dumps(
+        settings,
+        sort_keys=True,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _cached_result(key: str) -> dict[str, object] | None:
+    with _RESULT_CACHE_LOCK:
+        result = _RESULT_CACHE.get(key)
+        if result is None:
+            return None
+        _RESULT_CACHE.move_to_end(key)
+        copied = copy.deepcopy(result)
+    runtime = copied.get("runtime")
+    if isinstance(runtime, dict):
+        runtime["cache_hit"] = True
+    return copied
+
+
+def _store_result(key: str, result: dict[str, object]) -> None:
+    with _RESULT_CACHE_LOCK:
+        _RESULT_CACHE[key] = copy.deepcopy(result)
+        _RESULT_CACHE.move_to_end(key)
+        while len(_RESULT_CACHE) > RESULT_CACHE_SIZE:
+            _RESULT_CACHE.popitem(last=False)
 
 
 class QUBOLensHandler(BaseHTTPRequestHandler):
@@ -177,6 +228,9 @@ class QUBOLensHandler(BaseHTTPRequestHandler):
             source = str(payload.get("source", "demo"))
             if source == "upload":
                 content, filename = self._upload_content(payload)
+                source_fingerprint = (
+                    "upload:" + hashlib.sha256(content).hexdigest()
+                )
                 target = str(payload.get("target", "")).strip()
                 if not target:
                     raise ValueError("Choose the column you want to predict.")
@@ -192,6 +246,10 @@ class QUBOLensHandler(BaseHTTPRequestHandler):
                 target = str(payload.get("target", "")).strip()
                 if not isinstance(csv_text, str) or not target:
                     raise ValueError("CSV text and target column are required.")
+                source_fingerprint = (
+                    "csv:"
+                    + hashlib.sha256(csv_text.encode("utf-8")).hexdigest()
+                )
                 dataset = load_csv_dataset(
                     csv_text,
                     target_name=target,
@@ -199,9 +257,16 @@ class QUBOLensHandler(BaseHTTPRequestHandler):
                     name=str(payload.get("name", "Uploaded CSV"))[:80],
                 )
             elif source == "demo":
-                dataset = make_demo(str(payload.get("dataset", "edge-failure")))
+                dataset_slug = str(payload.get("dataset", "edge-failure"))
+                source_fingerprint = f"demo:{dataset_slug}"
+                dataset = make_demo(dataset_slug)
             else:
                 raise ValueError("source must be demo, upload, or csv.")
+            cache_key = _cache_key(source_fingerprint, payload)
+            cached = _cached_result(cache_key)
+            if cached is not None:
+                self._json(cached)
+                return
             result = optimize_dataset(
                 dataset,
                 k=int(payload.get("k", 6)),
@@ -209,6 +274,10 @@ class QUBOLensHandler(BaseHTTPRequestHandler):
                 quality=str(payload.get("quality", "balanced")),
                 seed=int(payload.get("seed", 42)),
             )
+            runtime = result.get("runtime")
+            if isinstance(runtime, dict):
+                runtime["cache_hit"] = False
+            _store_result(cache_key, result)
             self._json(result)
         except (TypeError, ValueError) as error:
             self._json({"error": str(error)}, HTTPStatus.BAD_REQUEST)

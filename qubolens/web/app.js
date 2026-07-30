@@ -731,7 +731,14 @@ function renderResult(result) {
   );
   setText("#qubo-energy", Number(result.selection.energy).toFixed(3));
   setText("#qubo-formula", result.qubo.formula);
-  setText("#validation-stat", `${result.dataset.samples.toLocaleString()} rows`);
+  const validationRows =
+    result.benchmark.qubo.validation_samples ?? result.dataset.samples;
+  setText(
+    "#validation-stat",
+    validationRows === result.dataset.samples
+      ? `${validationRows.toLocaleString()} rows`
+      : `${validationRows.toLocaleString()} of ${result.dataset.samples.toLocaleString()} rows`,
+  );
   setText(
     "#cv-stat",
     `${result.benchmark.qubo.cv_folds}-fold · same splits`,

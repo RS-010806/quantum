@@ -16,6 +16,12 @@ QUALITY = {
     "deep": (40, 340),
 }
 
+PRIMARY_VALIDATION = {
+    "folds": 3,
+    "max_samples": 600,
+    "training_steps": 64,
+}
+
 
 def _round_metrics(metrics: dict[str, object]) -> dict[str, object]:
     return {
@@ -45,10 +51,10 @@ def _compact_integer(value: int) -> str:
 
 def _frontier_k_values(n_features: int, chosen_k: int) -> list[int]:
     upper = min(n_features, 12)
-    if upper <= 7:
+    if upper <= 5:
         return list(range(1, upper + 1))
-    values = {1, 2, chosen_k, upper}
-    for fraction in (0.25, 0.45, 0.65, 0.82):
+    values = {1, chosen_k, upper}
+    for fraction in (0.4, 0.7):
         values.add(max(1, round(upper * fraction)))
     return sorted(value for value in values if value <= upper)
 
@@ -92,17 +98,28 @@ def optimize_dataset(
     ]
     all_features = list(range(dataset.n_features))
 
-    selected_metrics = evaluate_subset(dataset, selected, folds=5, seed=seed + 49)
-    greedy_metrics = evaluate_subset(dataset, greedy, folds=5, seed=seed + 49)
-    all_metrics = evaluate_subset(dataset, all_features, folds=5, seed=seed + 49)
+    primary_cache: dict[tuple[int, ...], dict[str, float | str | int]] = {}
+
+    def evaluate_primary(indices: list[int]) -> dict[str, float | str | int]:
+        key = tuple(sorted(indices))
+        if key not in primary_cache:
+            primary_cache[key] = evaluate_subset(
+                dataset,
+                list(key),
+                seed=seed + 49,
+                **PRIMARY_VALIDATION,
+            )
+        return primary_cache[key]
+
+    selected_metrics = evaluate_primary(selected)
+    greedy_metrics = evaluate_primary(greedy)
+    all_metrics = evaluate_primary(all_features)
 
     frontier: list[dict[str, object]] = []
     for frontier_k in _frontier_k_values(dataset.n_features, k):
         if frontier_k == k:
             q_indices = selected
-            q_metrics = selected_metrics
             greedy_indices = greedy
-            g_metrics = greedy_metrics
         else:
             frontier_model = build_feature_qubo(
                 relevance,
@@ -122,10 +139,8 @@ def optimize_dataset(
             greedy_indices = sorted(
                 range(dataset.n_features), key=lambda i: relevance[i], reverse=True
             )[:frontier_k]
-            q_metrics = evaluate_subset(dataset, q_indices, folds=5, seed=seed + 49)
-            g_metrics = evaluate_subset(
-                dataset, greedy_indices, folds=5, seed=seed + 49
-            )
+        q_metrics = evaluate_primary(q_indices)
+        g_metrics = evaluate_primary(greedy_indices)
         for method, indices, metrics in (
             ("QUBO", q_indices, q_metrics),
             ("Top relevance", greedy_indices, g_metrics),
@@ -267,7 +282,8 @@ def optimize_dataset(
             "dependencies": 0,
         },
         "caveat": (
-            "Use these scores to explore a direction, not as a final production "
-            "claim. Confirm your choice on data the selector has never seen."
+            "Scores use the same repeatable 3-fold validation sample of up to 600 "
+            "rows for every comparison. Use them to explore a direction, then "
+            "confirm your choice on data the selector has never seen."
         ),
     }

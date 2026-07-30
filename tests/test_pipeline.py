@@ -1,6 +1,6 @@
 import unittest
 
-from qubolens.data import Dataset
+from qubolens.data import Dataset, make_demo
 from qubolens.pipeline import optimize_dataset
 
 
@@ -31,6 +31,29 @@ class PipelineTests(unittest.TestCase):
         self.assertIn("score_explanation", result["insight"])
         self.assertIn("question", result["dataset"])
         self.assertEqual(result["runtime"]["dependencies"], 0)
+
+    def test_interactive_validation_is_bounded_and_consistent(self):
+        result = optimize_dataset(
+            make_demo("edge-failure"),
+            k=6,
+            quality="fast",
+            seed=42,
+        )
+        comparisons = (
+            result["benchmark"]["qubo"],
+            result["benchmark"]["greedy"],
+            result["benchmark"]["all_features"],
+        )
+        self.assertTrue(
+            all(metrics["validation_samples"] == 600 for metrics in comparisons)
+        )
+        self.assertTrue(all(metrics["cv_folds"] == 3 for metrics in comparisons))
+        chosen_frontier = next(
+            point
+            for point in result["frontier"]
+            if point["method"] == "QUBO" and point["k"] == 6
+        )
+        self.assertEqual(chosen_frontier["score"], result["benchmark"]["qubo"]["score"])
 
 
 if __name__ == "__main__":
