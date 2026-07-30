@@ -2,213 +2,183 @@
 
 ### Find the strongest features. Drop the noise. See what changes.
 
-QUBOLens is an open-source feature selection lab. Choose how many model inputs
-you want to keep, and it finds a useful set with less repeated information.
-Every result is visual, downloadable, and compared with simple alternatives in
-the same polished interactive workbench.
+QUBOLens is an interactive feature-selection lab. Give it a dataset, choose how
+many inputs you want to keep, and it finds a compact feature set without
+rewarding repeated information.
 
-Under the hood, the feature choice is written as a Quadratic Unconstrained
-Binary Optimization (QUBO) problem and solved with a built-in classical search.
-That makes the project useful now while preserving a clear connection to
-quantum optimization.
-
-**No account, external service, or runtime dependency is required.**
+![QUBOLens — visual feature selection lab](qubolens/web/og.png)
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/RS-010806/quantum)
 
-[Read the polished two-page project brief](output/pdf/QUBOLens-Project-Brief.pdf)
-or the [Markdown edition](docs/PROJECT_BRIEF.md).
+[Two-page project brief](output/pdf/QUBOLens-Project-Brief.pdf) ·
+[Technical guide](docs/TECHNICAL_GUIDE.md) ·
+[MIT license](LICENSE)
 
-## The idea
+## What you can do
 
-My takeaway is simple: **quantum ideas can be useful before quantum hardware
-is**. The practical first step is learning to turn a messy choice - which
-features are worth keeping together? - into a clear optimization problem that
-can be tested and compared.
-
-The project makes that idea tangible without making a speedup claim.
-
-## What people can do
-
-- Run two deterministic, realistic synthetic ML scenarios immediately.
-- Upload a CSV (binary classification or regression, up to 40 features).
-- Set an exact feature budget and tune the redundancy pressure.
-- Watch the search improve as it tries different feature mixes.
-- Compare QUBOLens with a simple ranking and the full feature set.
-- Inspect the quality/size frontier, search trace, chosen inputs, and feature
+- Start with an edge-failure or cloud-cost example.
+- Upload a CSV for binary classification or regression.
+- Choose exactly how many features to keep.
+- Adjust how strongly repeated information should be avoided.
+- Compare the chosen set with a simple ranking and the full dataset.
+- Explore the score-by-size chart, search progress, selected features, and
   interaction map.
-- Download the complete result or the technical optimization matrix.
-- Run the same workflow from Python or the command line.
+- Download the complete result or its reusable optimization matrix.
 
-Uploaded data is parsed in memory and never written to disk.
+Uploads are processed in memory and are not saved by the application.
 
-## Why feature selection?
+## Why it is interesting
 
-Feature budgeting is a small but real ML systems problem. Fewer inputs can mean
-less acquisition, preprocessing, storage, and inference work. Selecting them is
-combinatorial: with 18 signals and a budget of 6, there are 18,564 possible
-subsets. A relevance-only ranking can keep two sensors that say nearly the same
-thing. QUBOLens gives that interaction a quadratic cost.
+A feature can look useful on its own while adding almost nothing beside another
+feature. QUBOLens evaluates usefulness and overlap together, then shows the
+trade-off instead of hiding it behind a single score.
 
-The implemented objective is:
+The quantum-computing connection is the way this choice is written: the
+selection becomes a QUBO problem, a format used by quantum and other
+optimization methods. The practical lesson is that a quantum idea can improve
+how a problem is framed before new hardware is involved.
 
-\[
-E(x) =
--\sum_i r_i x_i
-+ \frac{\lambda}{\max(1,k-1)}\sum_{i<j} R_{ij}x_ix_j
-+ P\left(\sum_i x_i-k\right)^2
-\]
+## Run locally
 
-where \(x_i\) is a binary “keep” decision, \(r_i\) is normalized target
-correlation, \(R_{ij}\) is absolute pairwise feature correlation, \(\lambda\)
-controls redundancy pressure, and the last term enforces exactly \(k\)
-features.
+You need Python 3.11 or newer. There are no packages to install.
 
-The cardinality penalty is expanded into linear and quadratic coefficients.
-The exported mapping uses the unambiguous upper-triangular convention
-\(E(x)=\sum_{i\leq j}Q_{ij}x_ix_j+\mathrm{offset}\).
-
-## Quick start
-
-Python 3.11+ is the only requirement.
+### macOS or Linux
 
 ```bash
+git clone https://github.com/RS-010806/quantum.git
+cd quantum
 python3 -m qubolens.server
 ```
 
-Open <http://localhost:8000>. The first seeded experiment runs automatically.
+### Windows PowerShell
 
-Run it headlessly:
+```powershell
+git clone https://github.com/RS-010806/quantum.git
+cd quantum
+py -m qubolens.server
+```
+
+Open [http://localhost:8000](http://localhost:8000). The first example runs
+automatically. Press `Ctrl+C` in the terminal to stop the app.
+
+If port `8000` is already in use:
+
+```bash
+PORT=8080 python3 -m qubolens.server
+```
+
+On PowerShell:
+
+```powershell
+$env:PORT=8080
+py -m qubolens.server
+```
+
+Then open [http://localhost:8080](http://localhost:8080).
+
+## Use your own data
+
+In the web app:
+
+1. Select **Drop a numeric CSV**.
+2. Choose the column you want to predict.
+3. Set the number of features to keep.
+4. Press **Find my feature set**.
+
+CSV limits:
+
+- 30–2,500 rows
+- 2–40 feature columns
+- up to 2.5 MB
+- numeric or categorical feature values
+- a two-class or numeric target
+
+## Command line
+
+Run an included example:
 
 ```bash
 python3 -m qubolens --demo edge-failure -k 6 --quality fast
+```
+
+Run a CSV and save the result:
+
+```bash
 python3 -m qubolens --csv measurements.csv --target outcome -k 8 \
   --quality balanced --output result.json
 ```
 
-Use the library:
+## Deploy on Render
 
-```python
-from qubolens import load_csv_dataset, optimize_dataset
+The repository already contains the Render configuration.
 
-dataset = load_csv_dataset(
-    open("measurements.csv", encoding="utf-8").read(),
-    target_name="outcome",
-)
-result = optimize_dataset(dataset, k=8, redundancy_weight=0.65, seed=42)
+### One-click deployment
 
-print(result["selection"]["names"])
-print(result["qubo"]["export"])
-```
+1. Click **Deploy to Render** near the top of this page.
+2. Sign in to Render and connect GitHub if asked.
+3. Review the `qubolens` web service.
+4. Click **Deploy Blueprint**.
+5. Open the `.onrender.com` address shown when deployment finishes.
 
-Call the API:
+### From the Render dashboard
 
-```bash
-curl -s http://localhost:8000/api/optimize \
-  -H 'content-type: application/json' \
-  -d '{"source":"demo","dataset":"edge-failure","k":6,
-       "redundancy_weight":0.65,"quality":"fast","seed":42}'
-```
+1. Open the Render dashboard and select **New → Blueprint**.
+2. Connect `RS-010806/quantum`.
+3. Keep the branch set to `main`.
+4. Confirm that the Blueprint path is `render.yaml`.
+5. Review the service and select **Deploy Blueprint**.
 
-## Architecture
+No environment variables, database, or manual build settings are required.
+Render reads them from [`render.yaml`](render.yaml). Automatic deployments are
+off by default for people deploying from the public repository; they can be
+enabled later from the service settings.
 
-```text
-CSV or built-in scenario
-        │
-        ▼
-in-memory preprocessing ──► relevance + redundancy profile
-        │                                  │
-        │                                  ▼
-        │                          cardinality QUBO
-        │                                  │
-        │                                  ▼
-        │                       seeded Metropolis search
-        │                                  │
-        └────────► fixed-subset CV ◄────────┘
-                         │
-                         ▼
-        baselines + frontier + portable QUBO JSON
-                         │
-                         ▼
-                responsive browser workbench
-```
+## Repository structure
 
-The backend is Python standard library only:
+| Path | Purpose |
+|---|---|
+| `qubolens/web/` | Responsive interface, animations, and charts |
+| `qubolens/server.py` | Web server and JSON endpoints |
+| `qubolens/pipeline.py` | Runs selection, comparison, and result creation |
+| `qubolens/core.py` | Builds and searches the feature-selection problem |
+| `qubolens/data.py` | Example datasets and CSV preparation |
+| `qubolens/evaluate.py` | Uses the same model checks for every feature set |
+| `tests/` | Unit and end-to-end tests |
+| `docs/` | Project brief and technical explanation |
+| `render.yaml` | One-service Render deployment |
 
-- `qubolens/core.py` — statistics, QUBO encoder, Metropolis annealer.
-- `qubolens/data.py` — seeded scenarios and bounded in-memory CSV handling.
-- `qubolens/evaluate.py` — dependency-free logistic/ridge-style diagnostics.
-- `qubolens/pipeline.py` — selection, baselines, frontier, result contract.
-- `qubolens/server.py` — threaded JSON API and static asset server.
-- `qubolens/web/` — semantic HTML, responsive CSS, and Canvas visualizations.
-
-## Reproducibility and checks
+## Check the project
 
 ```bash
 python3 -m unittest discover -s tests -v
 python3 -m compileall -q qubolens
 ```
 
-Seeds control scenario generation, solver initialization, annealing order, and
-fold assignment. The test suite verifies the QUBO algebra against the readable
-objective for every state of a small problem, solver cardinality and
-determinism, CSV behavior, and the end-to-end export contract.
+The tests cover the selection math, repeatable results, CSV handling, feature
+limits, and the complete result format.
 
-## Deploy on Render
+## Research basis
 
-The repository includes a `render.yaml` Blueprint. The button above creates one
-free Python web service, runs compilation and tests during the build, starts
-`python -m qubolens.server`, and checks `/api/health`. Render can deploy directly
-from a linked Git repository and recognizes Blueprint configuration from the
-repository root ([Render Blueprint reference](https://render.com/docs/blueprint-spec)).
+QUBOLens is informed by:
 
-## Scientific grounding
+- Mücke et al.,
+  [*Feature Selection on Quantum Computers*](https://doi.org/10.1007/s42484-023-00099-z)
+- Glover, Kochenberger, and Du,
+  [*A Tutorial on Formulating and Using QUBO Models*](https://arxiv.org/abs/1811.11538)
+- Pranjic, Mummaneni, and Tutschku,
+  [*Quantum Annealing based Feature Selection in Machine Learning*](https://arxiv.org/abs/2411.19609)
+- Hellstern, Dehn, and Zaefferer,
+  [*Quantum computer based Feature Selection in Machine Learning*](https://arxiv.org/abs/2306.10591)
 
-QUBOLens is an implementation project informed by prior work:
+## Important limits
 
-1. Mücke et al. formulate fixed-size feature selection as a generalized QUBO
-   balancing importance and redundancy and evaluate it on classical and quantum
-   backends: [*Feature Selection on Quantum Computers*](https://doi.org/10.1007/s42484-023-00099-z).
-2. Glover, Kochenberger, and Du explain how constraints such as cardinality can
-   be represented with QUBO penalty functions:
-   [*A Tutorial on Formulating and Using QUBO Models*](https://arxiv.org/abs/1811.11538).
-3. Pranjic, Mummaneni, and Tutschku apply an MIQUBO formulation to an ML
-   pipeline and a used-equipment forecasting case:
-   [*Quantum Annealing based Feature Selection in Machine Learning*](https://arxiv.org/abs/2411.19609).
-4. Hellstern, Dehn, and Zaefferer report that outcomes are dataset-dependent
-   and that classical stochastic optimization remained superior in their
-   studied noisy settings—an important counterweight to hype:
-   [*Quantum computer based Feature Selection in Machine Learning*](https://arxiv.org/abs/2306.10591).
-5. The export shape mirrors the `sample_qubo` abstraction used by D-Wave’s
-   sampler interface:
-   [D-Wave sampler API](https://docs.dwavequantum.com/en/latest/ocean/api_ref_samplers/api_ref.html).
-
-## What this project does **not** claim
-
-- The built-in search is classical; the quantum connection is the problem
-  formulation and its compatibility with other solvers.
-- Post-selection cross-validation is a diagnostic comparison, not an unbiased
-  generalization estimate. Confirm a subset on held-out data.
-- Correlation-based relevance does not capture every nonlinear or conditional
-  interaction.
-- A lower QUBO energy does not guarantee a better downstream model.
-- The interactive cap is intentional. Larger problems need screening,
-  decomposition, or a more optimized sampler.
-
-Those boundaries are part of the product.
-
-## Next useful extensions
-
-- A sampler adapter protocol for D-Wave, QAOA, simulated bifurcation, and MILP.
-- Nested-CV mode for stricter model-selection estimates.
-- Per-feature acquisition or preprocessing costs with slack-variable budgets.
-- scikit-learn-compatible `TransformerMixin` wrapper as an optional extra.
-- Multiclass relevance and nonlinear dependency measures.
-
-See [the implementation specification](docs/IMPLEMENTATION_SPEC.md) for exact
-engineering decisions and [the project brief](docs/PROJECT_BRIEF.md) for the
-concise shareable story.
+- Treat the scores as a way to explore a direction, not as final production
+  validation.
+- Correlation does not capture every nonlinear relationship.
+- Test the selected features on data that was not used during selection.
+- The included search runs without quantum hardware; the QUBO can be exported
+  for other compatible methods.
 
 ## License
 
-MIT. Contributions and careful negative results are welcome.
+QUBOLens is available under the [MIT License](LICENSE).

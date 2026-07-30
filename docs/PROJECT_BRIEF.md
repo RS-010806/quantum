@@ -25,16 +25,16 @@ Real ML systems often pay for inputs before the model makes a prediction:
 sensors, database joins, API calls, preprocessing, memory, and latency. Feature
 selection is therefore an efficiency decision, not just a statistics exercise.
 
-A normal top-\(k\) ranking judges every feature alone. It can keep two strong
-signals that repeat the same information. QUBOLens scores **pairs** as well as
-individual features, making that trade-off explicit and visible.
+A simple top-\(k\) ranking judges every feature alone. It can keep two strong
+signals that repeat the same information. QUBOLens considers **pairs** as well
+as individual features, making that trade-off explicit and visible.
 
 | User gets | Why it matters |
 |---|---|
 | Exact feature budget | Maps to an operational constraint |
 | Result in seconds | Fast enough to explore different limits |
-| Classical baselines | Prevents a “quantum” label from replacing evidence |
-| Accuracy–efficiency frontier | Shows where extra inputs stop helping |
+| Fair comparisons | Shows whether the chosen set actually helps |
+| Score-by-size chart | Shows where extra inputs stop helping |
 | Search trace and interaction map | Makes the optimization inspectable |
 | Downloadable technical matrix | Preserves a path to other solvers |
 | CLI, Python API, and web UI | Works in a demo, notebook, or pipeline |
@@ -42,17 +42,15 @@ individual features, making that trade-off explicit and visible.
 ### The idea behind the project
 
 My takeaway is that quantum ideas can be useful before quantum hardware is.
-The practical first step is **a clearer way to frame a difficult choice**, not a
-speedup claim.
+The practical first step is **a clearer way to frame a difficult choice**.
 
 QUBO turns a fuzzy question - "which signals are worth keeping together?" -
 into a precise optimization problem. It can be tested with the included search
 today and moved to quantum or hybrid solvers later. The useful artifact is a
 reproducible problem, comparison, and trade-off.
 
-The live experiment tests this premise honestly. It does **not** claim quantum
-speedup. It asks whether a relevance-plus-redundancy formulation finds a more
-efficient fixed-size signal set than a relevance-only baseline, then visualizes
+The live experiment asks whether considering both usefulness and overlap finds
+a stronger fixed-size feature set than ranking each feature alone. It shows
 both outcomes—even when the answer is “they are essentially tied.”
 
 ### How it works
@@ -71,11 +69,11 @@ E(x) = -\sum_i r_i x_i
 \]
 
 Low energy means high relevance, low duplication, and the correct budget.
-QUBOLens uses a repeatable classical search, fixed data splits for comparison,
-and a zero-dependency Python service. Uploads remain in memory. The whole app
-deploys as one free Render web service.
+QUBOLens uses a repeatable search and fixed data splits for comparison. Uploads
+remain in memory. The whole app runs as one Python service and deploys directly
+from the repository.
 
-### What makes it credible
+### Why the result is easy to inspect
 
 - The algebra is unit-tested against the readable objective for every state of
   a small QUBO.
@@ -85,22 +83,18 @@ deploys as one free Render web service.
   production validation.
 - The repository includes tests, a health check, CI, deployment configuration,
   a CLI, and an MIT license.
-- The implementation follows published QUBO feature-selection formulations,
+- The method follows published QUBO feature-selection formulations,
   including [Mücke et al.](https://doi.org/10.1007/s42484-023-00099-z), the
   constraint constructions summarized by
   [Glover et al.](https://arxiv.org/abs/1811.11538), and recent MIQUBO work by
   [Pranjic et al.](https://arxiv.org/abs/2411.19609).
 
-### Boundaries and next step
+### Important limits
 
 Correlation is not the whole story; these comparison scores are not a held-out
 production estimate; and the included search is classical, not quantum
 computation. Those are explicit boundaries, not footnotes.
 
-The next high-value extension is a small sampler adapter that runs the exported
-matrix through D-Wave, QAOA, simulated bifurcation, or MILP and compares
-solution quality, cost, and wall time against the included baseline.
-
 **Repository:** [github.com/RS-010806/quantum](https://github.com/RS-010806/quantum)
 
-**License:** MIT · **Runtime dependencies:** 0 · **Deployment:** Render Blueprint
+**License:** MIT · **Local requirement:** Python 3.11+ · **Deployment:** Render

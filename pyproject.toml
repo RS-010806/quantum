@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "qubolens"
 version = "1.0.0"
-description = "Visual feature selection with a built-in classical optimizer."
+description = "Interactive feature selection for smaller, less repetitive input sets."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
