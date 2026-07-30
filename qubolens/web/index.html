@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="QUBOLens helps you choose a smaller, stronger set of model features and see every trade-off clearly."
+    />
+    <meta name="theme-color" content="#0a0c0b" />
+    <meta property="og:title" content="QUBOLens — Feature selection, made visual" />
+    <meta
+      property="og:description"
+      content="Find the strongest features. Drop the noise. See what changes."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/og.png" />
+    <title>QUBOLens — Feature selection, made visual</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#lab">Skip to experiment</a>
+    <header class="site-header">
+      <a class="brand" href="#" aria-label="QUBOLens home">
+        <span class="brand-mark" aria-hidden="true">Q</span>
+        <span>QUBO<span class="brand-light">Lens</span></span>
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="#lab">Workbench</a>
+        <a href="#method">Method</a>
+        <a href="#evidence">Evidence</a>
+      </nav>
+      <a
+        class="github-link"
+        href="https://github.com/RS-010806/quantum"
+        target="_blank"
+        rel="noreferrer"
+      >
+        <span class="github-dot" aria-hidden="true"></span>
+        View source
+      </a>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow">
+            <span class="pulse-dot" aria-hidden="true"></span>
+            Interactive feature selection lab
+          </p>
+          <h1 id="hero-title">Keep the signal.<br /><em>Drop the extras.</em></h1>
+          <p class="hero-lede">
+            QUBOLens helps you choose a smaller set of model inputs without losing
+            sight of predictive quality. Try a sample dataset or upload a CSV,
+            choose your limit, and see exactly what changes.
+          </p>
+          <div class="hero-actions">
+            <a class="primary-button" href="#lab">Try the live lab</a>
+            <a class="text-link" href="#premise">
+              Why this matters <span aria-hidden="true">↘</span>
+            </a>
+          </div>
+          <dl class="hero-facts" aria-label="Project facts">
+            <div>
+              <dt>2</dt>
+              <dd>sample datasets</dd>
+            </div>
+            <div>
+              <dt>40</dt>
+              <dd>feature limit</dd>
+            </div>
+            <div>
+              <dt>5×</dt>
+              <dd>score comparison</dd>
+            </div>
+          </dl>
+        </div>
+        <div class="hero-visual" aria-label="Animated feature search map">
+          <canvas id="hero-canvas" aria-hidden="true"></canvas>
+          <div class="visual-caption">
+            <span>Feature search map</span>
+            <span class="mono">better mix ↓</span>
+          </div>
+          <div class="energy-chip energy-chip-a">
+            <span>01</span><span>1</span><span>0</span><span>1</span><span>0</span>
+          </div>
+          <div class="energy-chip energy-chip-b">
+            <span>10</span><span>0</span><span>1</span><span>0</span><span>1</span>
+          </div>
+          <div class="ground-state">
+            <span class="ground-label">best feature mix</span>
+            <strong id="hero-state">100101</strong>
+            <span class="mono accent">−3.842</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="thesis-strip" id="premise" aria-label="Project premise">
+        <span class="thesis-number">01 / THE IDEA</span>
+        <p>
+          “Strong features can repeat each other. QUBOLens asks not only
+          <strong>what helps the model</strong>, but also what each input adds beyond
+          the others.”
+        </p>
+      </section>
+
+      <section class="lab-section" id="lab" aria-labelledby="lab-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Interactive lab</p>
+            <h2 id="lab-title">Choose a smaller, stronger feature set.</h2>
+          </div>
+          <p>
+            Set how many features you want to keep. We will look for a useful mix
+            without paying twice for the same signal.
+          </p>
+        </div>
+
+        <div class="workbench">
+          <aside class="control-panel" aria-label="Experiment controls">
+            <div class="panel-kicker">
+              <span>Experiment controls</span>
+              <span class="status-badge">Private by design</span>
+            </div>
+
+            <fieldset>
+              <legend>01 · Choose data</legend>
+              <div class="dataset-options">
+                <button
+                  class="dataset-option active"
+                  type="button"
+                  data-dataset="edge-failure"
+                  data-features="18"
+                  aria-pressed="true"
+                >
+                  <span class="dataset-icon lavender" aria-hidden="true">EF</span>
+                  <span>
+                    <strong>Edge failure</strong>
+                    <small>Classification · 18 signals</small>
+                  </span>
+                  <span class="radio-mark" aria-hidden="true"></span>
+                </button>
+                <button
+                  class="dataset-option"
+                  type="button"
+                  data-dataset="cloud-cost"
+                  data-features="16"
+                  aria-pressed="false"
+                >
+                  <span class="dataset-icon amber" aria-hidden="true">CC</span>
+                  <span>
+                    <strong>Cloud cost</strong>
+                    <small>Regression · 16 signals</small>
+                  </span>
+                  <span class="radio-mark" aria-hidden="true"></span>
+                </button>
+              </div>
+              <div class="or-rule"><span>or bring your data</span></div>
+              <label class="upload-zone" for="csv-file">
+                <input id="csv-file" type="file" accept=".csv,text/csv" />
+                <span class="upload-plus" aria-hidden="true">+</span>
+                <span>
+                  <strong id="upload-label">Drop a numeric CSV</strong>
+                  <small>≤ 2.5 MB · processed in memory</small>
+                </span>
+              </label>
+              <div class="target-control hidden" id="target-control">
+                <label for="target-column">Target column</label>
+                <select id="target-column"></select>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>02 · Set your limit</legend>
+              <div class="range-heading">
+                <label for="feature-budget">Features to keep</label>
+                <output id="feature-budget-value" for="feature-budget">6 / 18</output>
+              </div>
+              <input
+                id="feature-budget"
+                class="range-input"
+                type="range"
+                min="1"
+                max="18"
+                value="6"
+              />
+              <div class="range-scale"><span>lean</span><span>more signal</span></div>
+            </fieldset>
+
+            <fieldset>
+              <legend>03 · Tune the mix</legend>
+              <div class="range-heading">
+                <label for="redundancy-weight">Avoid repeated signal</label>
+                <output id="redundancy-value" for="redundancy-weight">0.65</output>
+              </div>
+              <input
+                id="redundancy-weight"
+                class="range-input"
+                type="range"
+                min="0"
+                max="1.5"
+                value="0.65"
+                step="0.05"
+              />
+              <div class="range-scale"><span>relevance first</span><span>diversity first</span></div>
+            </fieldset>
+
+            <fieldset>
+              <legend>04 · Choose search depth</legend>
+              <div class="quality-options">
+                <label><input type="radio" name="quality" value="fast" /> Quick</label>
+                <label
+                  ><input type="radio" name="quality" value="balanced" checked />
+                  Balanced</label
+                >
+                <label><input type="radio" name="quality" value="deep" /> Thorough</label>
+              </div>
+            </fieldset>
+
+            <button class="run-button" type="button" id="run-button">
+              <span id="run-button-label">Find my feature set</span>
+              <span class="button-arrow" aria-hidden="true">↗</span>
+            </button>
+            <p class="control-footnote">
+              Your upload stays in memory and disappears after the run.
+            </p>
+          </aside>
+
+          <div class="results-panel" aria-live="polite" aria-busy="true">
+            <div class="result-toolbar">
+              <div>
+                <span class="result-status" id="result-status">
+                  <span class="pulse-dot" aria-hidden="true"></span>
+                  Preparing your first result
+                </span>
+                <h3 id="result-title">Edge device failure</h3>
+              </div>
+              <div class="export-actions">
+                <button type="button" id="download-result" disabled>Download report</button>
+                <button type="button" id="download-qubo" disabled>Technical matrix</button>
+              </div>
+            </div>
+
+            <div class="progress-shell" id="progress-shell">
+              <div class="progress-track"><span id="progress-bar"></span></div>
+              <div class="progress-copy">
+                <span id="progress-label">Reading the dataset…</span>
+                <span class="mono" id="progress-value">12%</span>
+              </div>
+            </div>
+
+            <div class="results-content loading-soft" id="results-content">
+              <div class="metrics-grid">
+                <article class="metric-card feature-metric">
+                  <span class="metric-label">Features kept</span>
+                  <strong id="metric-features">—</strong>
+                  <span class="metric-note" id="metric-reduction">waiting for run</span>
+                </article>
+                <article class="metric-card">
+                  <span class="metric-label" id="metric-score-label">Model score</span>
+                  <strong id="metric-score">—</strong>
+                  <span class="metric-note" id="metric-score-delta">vs. top relevance</span>
+                </article>
+                <article class="metric-card">
+                  <span class="metric-label">Search space</span>
+                  <strong id="metric-space">—</strong>
+                  <span class="metric-note">possible combinations</span>
+                </article>
+                <article class="metric-card">
+                  <span class="metric-label">Run time</span>
+                  <strong id="metric-runtime">—</strong>
+                  <span class="metric-note">including model checks</span>
+                </article>
+              </div>
+
+              <article class="finding-card">
+                <div class="finding-index">OBSERVATION <span>01</span></div>
+                <div>
+                  <h4 id="finding-title">Finding a strong feature mix.</h4>
+                  <p id="finding-copy">
+                    The run will compare QUBOLens with a simple feature ranking under
+                    the same limit.
+                  </p>
+                </div>
+                <div class="finding-seal" aria-hidden="true">Q</div>
+              </article>
+
+              <div class="chart-grid">
+                <article class="chart-card pareto-card">
+                  <div class="card-heading">
+                    <div>
+                      <span class="card-kicker">Model quality × fewer inputs</span>
+                      <h4>Feature limit comparison</h4>
+                    </div>
+                    <div class="legend" aria-label="Chart legend">
+                      <span><i class="legend-qubo"></i>QUBOLens</span>
+                      <span><i class="legend-greedy"></i>Simple ranking</span>
+                    </div>
+                  </div>
+                  <canvas id="pareto-chart" aria-label="Model score by feature budget"></canvas>
+                </article>
+
+                <article class="chart-card energy-card">
+                  <div class="card-heading">
+                    <div>
+                      <span class="card-kicker">How the search improved</span>
+                      <h4>Best score found over time</h4>
+                    </div>
+                    <span class="mono mini-stat" id="anneal-stat">— attempts</span>
+                  </div>
+                  <canvas id="energy-chart" aria-label="Best search score over time"></canvas>
+                </article>
+              </div>
+
+              <div class="detail-grid">
+                <article class="selection-card">
+                  <div class="card-heading">
+                    <div>
+                      <span class="card-kicker">Your result</span>
+                      <h4>Chosen features</h4>
+                    </div>
+                    <span class="mono mini-stat" id="energy-value">— selected</span>
+                  </div>
+                  <div class="feature-cloud" id="feature-cloud">
+                    <span class="feature-pill placeholder">awaiting selection</span>
+                  </div>
+                  <div class="selection-stats">
+                    <div>
+                      <span>Target connection</span>
+                      <strong id="avg-relevance">—</strong>
+                    </div>
+                    <div>
+                      <span>Feature overlap</span>
+                      <strong id="avg-redundancy">—</strong>
+                    </div>
+                    <div>
+                      <span>Input work</span>
+                      <strong id="proxy-ops">—</strong>
+                    </div>
+                  </div>
+                </article>
+
+                <article class="matrix-card">
+                  <div class="card-heading">
+                    <div>
+                      <span class="card-kicker">Behind the scenes</span>
+                      <h4>Feature interaction map</h4>
+                    </div>
+                    <span class="mono mini-stat" id="matrix-stat">— variables</span>
+                  </div>
+                  <canvas id="qubo-chart" aria-label="Map of feature interactions"></canvas>
+                </article>
+              </div>
+
+              <article class="benchmark-card">
+                <div class="card-heading">
+                  <div>
+                    <span class="card-kicker">Same data splits, same simple model</span>
+                    <h4>Fair comparison</h4>
+                  </div>
+                  <span class="honesty-tag">for exploration, not final validation</span>
+                </div>
+                <div class="benchmark-table" role="table" aria-label="Method comparison">
+                  <div class="benchmark-row benchmark-head" role="row">
+                    <span role="columnheader">Method</span>
+                    <span role="columnheader">Features</span>
+                    <span role="columnheader" id="benchmark-score-label">Score</span>
+                    <span role="columnheader">Input work</span>
+                  </div>
+                  <div class="benchmark-row highlighted" role="row">
+                    <span role="cell"><i class="method-mark qubo"></i>QUBOLens</span>
+                    <span role="cell" id="bench-qubo-k">—</span>
+                    <strong role="cell" id="bench-qubo-score">—</strong>
+                    <span role="cell" id="bench-qubo-ops">—</span>
+                  </div>
+                  <div class="benchmark-row" role="row">
+                    <span role="cell"
+                      ><i class="method-mark greedy"></i>Simple ranking</span
+                    >
+                    <span role="cell" id="bench-greedy-k">—</span>
+                    <strong role="cell" id="bench-greedy-score">—</strong>
+                    <span role="cell" id="bench-greedy-ops">—</span>
+                  </div>
+                  <div class="benchmark-row" role="row">
+                    <span role="cell"><i class="method-mark all"></i>All features</span>
+                    <span role="cell" id="bench-all-k">—</span>
+                    <strong role="cell" id="bench-all-score">—</strong>
+                    <span role="cell" id="bench-all-ops">—</span>
+                  </div>
+                </div>
+                <p class="caveat" id="caveat">
+                  Results will include the evaluation caveat here.
+                </p>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="method-section" id="method" aria-labelledby="method-title">
+        <div class="section-heading method-heading">
+          <div>
+            <p class="eyebrow">How it chooses</p>
+            <h2 id="method-title">Three ideas.<br />One clear feature set.</h2>
+          </div>
+          <p>
+            The result comes from a simple trade-off: keep what helps, avoid what
+            repeats, and respect the feature limit you chose.
+          </p>
+        </div>
+        <div class="formula-panel">
+          <div class="formula" aria-label="Feature selection score">
+            <span class="mono">score =</span>
+            <span class="formula-term relevance-term">useful signal<small>keep</small></span>
+            <span class="formula-op">+</span>
+            <span class="formula-term redundancy-term"
+              >less repetition<small>balance</small></span
+            >
+            <span class="formula-op">+</span>
+            <span class="formula-term budget-term"
+              >your limit<small>respect</small></span
+            >
+          </div>
+          <div class="method-steps">
+            <article>
+              <span>01</span>
+              <h3>Measure what helps</h3>
+              <p>
+                Each feature is checked for how strongly it connects to the result
+                you want to predict.
+              </p>
+            </article>
+            <article>
+              <span>02</span>
+              <h3>Try many combinations</h3>
+              <p>
+                The search explores different feature mixes and favors combinations
+                that add new information.
+              </p>
+            </article>
+            <article>
+              <span>03</span>
+              <h3>Compare fairly</h3>
+              <p>
+                The chosen set is checked against a simple ranking and the full
+                dataset using the same model and data splits.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="evidence-section" id="evidence" aria-labelledby="evidence-title">
+        <div class="evidence-intro">
+          <p class="eyebrow">Built to be understood</p>
+          <h2 id="evidence-title">Real methods.<br />Clear limits.</h2>
+          <p>
+            QUBOLens is a practical open-source project, not a research claim. Under
+            the friendly interface is a QUBO formulation, a classical search, and
+            simple comparisons. Results will vary by dataset.
+          </p>
+        </div>
+        <div class="reference-list">
+          <a href="https://arxiv.org/abs/2203.13261" target="_blank" rel="noreferrer">
+            <span class="reference-year">2023</span>
+            <span>
+              <strong>Feature Selection on Quantum Computers</strong>
+              <small>Mücke et al. · Quantum Machine Intelligence</small>
+            </span>
+            <span aria-hidden="true">↗</span>
+          </a>
+          <a href="https://arxiv.org/abs/1811.11538" target="_blank" rel="noreferrer">
+            <span class="reference-year">2018</span>
+            <span>
+              <strong>A Tutorial on Formulating and Using QUBO Models</strong>
+              <small>Glover, Kochenberger &amp; Du</small>
+            </span>
+            <span aria-hidden="true">↗</span>
+          </a>
+          <a href="https://arxiv.org/abs/2411.19609" target="_blank" rel="noreferrer">
+            <span class="reference-year">2024</span>
+            <span>
+              <strong>Quantum Annealing based Feature Selection in ML</strong>
+              <small>Pranjic, Mummaneni &amp; Tutschku</small>
+            </span>
+            <span aria-hidden="true">↗</span>
+          </a>
+          <a
+            href="https://docs.dwavequantum.com/en/latest/ocean/api_ref_samplers/api_ref.html"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <span class="reference-year">API</span>
+            <span>
+              <strong>D-Wave sampler interface</strong>
+              <small>The technical format used for exported problems</small>
+            </span>
+            <span aria-hidden="true">↗</span>
+          </a>
+        </div>
+      </section>
+
+      <section class="closing-section">
+        <p class="eyebrow">Open source · MIT</p>
+        <h2>Learn feature selection<br />by seeing every choice.</h2>
+        <div>
+          <a
+            class="primary-button light-button"
+            href="https://github.com/RS-010806/quantum"
+            target="_blank"
+            rel="noreferrer"
+            >Fork QUBOLens</a
+          >
+          <a class="text-link light-link" href="#lab">Run another budget ↑</a>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <a class="brand footer-brand" href="#">
+        <span class="brand-mark" aria-hidden="true">Q</span>
+        <span>QUBO<span class="brand-light">Lens</span></span>
+      </a>
+      <p>Visual feature selection · open source and easy to inspect.</p>
+      <p class="mono">DATA → CHOICE → COMPARISON</p>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,586 @@
+const state = {
+  source: "demo",
+  dataset: "edge-failure",
+  csvText: "",
+  csvName: "",
+  headers: [],
+  result: null,
+  running: false,
+};
+
+const $ = (selector) => document.querySelector(selector);
+const $$ = (selector) => Array.from(document.querySelectorAll(selector));
+
+const elements = {
+  budget: $("#feature-budget"),
+  budgetValue: $("#feature-budget-value"),
+  redundancy: $("#redundancy-weight"),
+  redundancyValue: $("#redundancy-value"),
+  run: $("#run-button"),
+  runLabel: $("#run-button-label"),
+  resultStatus: $("#result-status"),
+  resultTitle: $("#result-title"),
+  progressShell: $("#progress-shell"),
+  progressBar: $("#progress-bar"),
+  progressLabel: $("#progress-label"),
+  progressValue: $("#progress-value"),
+  content: $("#results-content"),
+  file: $("#csv-file"),
+  uploadLabel: $("#upload-label"),
+  targetControl: $("#target-control"),
+  target: $("#target-column"),
+  results: $(".results-panel"),
+};
+
+function setRangeProgress(input) {
+  const value = Number(input.value);
+  const min = Number(input.min);
+  const max = Number(input.max);
+  const percentage = ((value - min) / Math.max(1, max - min)) * 100;
+  input.style.setProperty("--range-progress", `${percentage}%`);
+}
+
+function updateBudgetLabel() {
+  elements.budgetValue.textContent = `${elements.budget.value} / ${elements.budget.max}`;
+  setRangeProgress(elements.budget);
+}
+
+function updateRedundancyLabel() {
+  elements.redundancyValue.textContent = Number(elements.redundancy.value).toFixed(2);
+  setRangeProgress(elements.redundancy);
+}
+
+function selectDemo(button) {
+  $$(".dataset-option").forEach((option) => {
+    option.classList.remove("active");
+    option.setAttribute("aria-pressed", "false");
+  });
+  button.classList.add("active");
+  button.setAttribute("aria-pressed", "true");
+  state.source = "demo";
+  state.dataset = button.dataset.dataset;
+  state.csvText = "";
+  state.headers = [];
+  elements.file.value = "";
+  elements.uploadLabel.textContent = "Drop a numeric CSV";
+  elements.targetControl.classList.add("hidden");
+  elements.budget.max = button.dataset.features;
+  elements.budget.value = Math.min(6, Number(button.dataset.features));
+  updateBudgetLabel();
+}
+
+function parseCSVLine(line) {
+  const values = [];
+  let value = "";
+  let quoted = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+    if (character === '"') {
+      if (quoted && line[index + 1] === '"') {
+        value += '"';
+        index += 1;
+      } else {
+        quoted = !quoted;
+      }
+    } else if (character === "," && !quoted) {
+      values.push(value.trim());
+      value = "";
+    } else {
+      value += character;
+    }
+  }
+  values.push(value.trim());
+  return values;
+}
+
+async function handleFile(file) {
+  if (!file) return;
+  if (file.size > 2_500_000) {
+    showError("That CSV is larger than the 2.5 MB interactive limit.");
+    elements.file.value = "";
+    return;
+  }
+  const text = await file.text();
+  const firstLine = text.replace(/^\uFEFF/, "").split(/\r?\n/, 1)[0];
+  const headers = parseCSVLine(firstLine).filter(Boolean);
+  if (headers.length < 3) {
+    showError("The CSV needs a header, at least two features, and one target.");
+    elements.file.value = "";
+    return;
+  }
+  if (headers.length - 1 > 40) {
+    showError("The interactive lab accepts up to 40 feature columns.");
+    elements.file.value = "";
+    return;
+  }
+  state.source = "csv";
+  state.csvText = text;
+  state.csvName = file.name.replace(/\.csv$/i, "");
+  state.headers = headers;
+  $$(".dataset-option").forEach((option) => {
+    option.classList.remove("active");
+    option.setAttribute("aria-pressed", "false");
+  });
+  elements.uploadLabel.textContent = file.name;
+  elements.target.replaceChildren();
+  headers.forEach((header, index) => {
+    const option = document.createElement("option");
+    option.value = header;
+    option.textContent = header;
+    if (index === headers.length - 1) option.selected = true;
+    elements.target.append(option);
+  });
+  elements.targetControl.classList.remove("hidden");
+  elements.budget.max = Math.min(40, headers.length - 1);
+  elements.budget.value = Math.min(6, Number(elements.budget.max));
+  updateBudgetLabel();
+  elements.resultStatus.innerHTML =
+    '<span class="pulse-dot" aria-hidden="true"></span>CSV ready · choose target';
+}
+
+function selectedQuality() {
+  return $('input[name="quality"]:checked').value;
+}
+
+function buildPayload() {
+  const common = {
+    k: Number(elements.budget.value),
+    redundancy_weight: Number(elements.redundancy.value),
+    quality: selectedQuality(),
+    seed: 42,
+  };
+  if (state.source === "csv") {
+    return {
+      ...common,
+      source: "csv",
+      csv: state.csvText,
+      name: state.csvName || "Uploaded CSV",
+      target: elements.target.value,
+      task: "auto",
+    };
+  }
+  return { ...common, source: "demo", dataset: state.dataset };
+}
+
+function startProgress() {
+  const stages = [
+    [11, "Reading the dataset…"],
+    [26, "Measuring each feature…"],
+    [43, "Looking for repeated signal…"],
+    [61, "Trying different feature mixes…"],
+    [77, "Comparing with a simple ranking…"],
+    [88, "Building the charts…"],
+  ];
+  let position = 0;
+  elements.progressShell.classList.remove("hidden");
+  elements.progressBar.style.width = `${stages[0][0]}%`;
+  elements.progressLabel.textContent = stages[0][1];
+  elements.progressValue.textContent = `${stages[0][0]}%`;
+  return window.setInterval(() => {
+    position = Math.min(position + 1, stages.length - 1);
+    const [progress, label] = stages[position];
+    elements.progressBar.style.width = `${progress}%`;
+    elements.progressLabel.textContent = label;
+    elements.progressValue.textContent = `${progress}%`;
+  }, 480);
+}
+
+async function runExperiment() {
+  if (state.running) return;
+  if (state.source === "csv" && (!state.csvText || !elements.target.value)) {
+    showError("Choose a CSV and target column first.");
+    return;
+  }
+  state.running = true;
+  elements.results.setAttribute("aria-busy", "true");
+  elements.run.disabled = true;
+  elements.runLabel.textContent = "Searching…";
+  elements.content.classList.add("loading-soft");
+  elements.resultStatus.innerHTML =
+    '<span class="pulse-dot" aria-hidden="true"></span>Finding feature mixes';
+  const progressTimer = startProgress();
+  try {
+    const response = await fetch("/api/optimize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(buildPayload()),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || "Something went wrong while testing the feature set.");
+    }
+    state.result = payload;
+    window.clearInterval(progressTimer);
+    elements.progressBar.style.width = "100%";
+    elements.progressLabel.textContent = "Results ready";
+    elements.progressValue.textContent = "100%";
+    renderResult(payload);
+    window.setTimeout(() => elements.progressShell.classList.add("hidden"), 550);
+  } catch (error) {
+    window.clearInterval(progressTimer);
+    showError(error.message || "The experiment failed.");
+  } finally {
+    state.running = false;
+    elements.run.disabled = false;
+    elements.runLabel.textContent = "Find my feature set";
+  }
+}
+
+function showError(message) {
+  elements.results.setAttribute("aria-busy", "false");
+  elements.progressShell.classList.add("hidden");
+  elements.content.classList.remove("loading-soft");
+  elements.resultStatus.innerHTML =
+    '<span class="pulse-dot" aria-hidden="true"></span>Needs attention';
+  $("#finding-title").textContent = "The run could not start.";
+  $("#finding-copy").textContent = message;
+}
+
+function formatScore(value) {
+  return Number(value).toFixed(3);
+}
+
+function formatSignedPoints(value) {
+  const points = Number(value) * 100;
+  return `${points >= 0 ? "+" : ""}${points.toFixed(1)} pts`;
+}
+
+function formatRuntime(milliseconds) {
+  return milliseconds < 1000
+    ? `${Math.round(milliseconds)} ms`
+    : `${(milliseconds / 1000).toFixed(2)} s`;
+}
+
+function setText(selector, value) {
+  const node = $(selector);
+  if (node) node.textContent = value;
+}
+
+function renderResult(result) {
+  elements.results.setAttribute("aria-busy", "false");
+  elements.content.classList.remove("loading-soft");
+  elements.resultStatus.innerHTML =
+    '<span class="pulse-dot" aria-hidden="true"></span>Results ready';
+  elements.resultTitle.textContent = result.dataset.name;
+  setText("#metric-features", `${result.selection.k}/${result.dataset.features}`);
+  setText("#metric-reduction", `${result.selection.feature_reduction}% fewer inputs`);
+  setText("#metric-score-label", result.benchmark.qubo.score_label);
+  setText("#metric-score", formatScore(result.benchmark.qubo.score));
+  setText(
+    "#metric-score-delta",
+    `${formatSignedPoints(result.insight.score_delta_vs_greedy)} vs. top relevance`,
+  );
+  setText("#metric-space", result.selection.search_space_label);
+  setText("#metric-runtime", formatRuntime(result.runtime.total_ms));
+  setText(
+    "#finding-title",
+    result.insight.redundancy_delta_vs_greedy < -0.01
+      ? "A smaller set with less repetition."
+      : "The simple comparison tells the story.",
+  );
+  setText("#finding-copy", result.insight.finding);
+  setText(
+    "#anneal-stat",
+    `${result.annealing.reads} attempts · ${result.annealing.sweeps} steps`,
+  );
+  setText("#energy-value", `${result.selection.k} selected`);
+  setText("#avg-relevance", result.selection.average_relevance.toFixed(3));
+  setText("#avg-redundancy", result.selection.average_redundancy.toFixed(3));
+  setText(
+    "#proxy-ops",
+    `${Math.round((result.selection.k / result.dataset.features) * 100)}%`,
+  );
+  setText(
+    "#matrix-stat",
+    `${result.dataset.features} features`,
+  );
+
+  const cloud = $("#feature-cloud");
+  cloud.replaceChildren();
+  result.selection.names.forEach((name) => {
+    const pill = document.createElement("span");
+    pill.className = "feature-pill";
+    pill.textContent = name;
+    cloud.append(pill);
+  });
+
+  setText("#benchmark-score-label", result.benchmark.qubo.score_label);
+  setText("#bench-qubo-k", result.selection.k);
+  setText("#bench-greedy-k", result.selection.k);
+  setText("#bench-all-k", result.dataset.features);
+  setText("#bench-qubo-score", formatScore(result.benchmark.qubo.score));
+  setText("#bench-greedy-score", formatScore(result.benchmark.greedy.score));
+  setText("#bench-all-score", formatScore(result.benchmark.all_features.score));
+  const selectedWork = `${Math.round(
+    (result.selection.k / result.dataset.features) * 100,
+  )}%`;
+  setText("#bench-qubo-ops", selectedWork);
+  setText("#bench-greedy-ops", selectedWork);
+  setText("#bench-all-ops", "100%");
+  setText("#caveat", result.caveat);
+
+  $("#download-result").disabled = false;
+  $("#download-qubo").disabled = false;
+  drawPareto(result);
+  drawEnergy(result);
+  drawQubo(result);
+}
+
+function prepareCanvas(canvas) {
+  const ratio = Math.min(window.devicePixelRatio || 1, 2);
+  const width = Math.max(260, canvas.clientWidth);
+  const height = Math.max(150, canvas.clientHeight);
+  const pixelWidth = Math.round(width * ratio);
+  const pixelHeight = Math.round(height * ratio);
+  if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+    canvas.width = pixelWidth;
+    canvas.height = pixelHeight;
+  }
+  const context = canvas.getContext("2d");
+  context.setTransform(ratio, 0, 0, ratio, 0, 0);
+  return { context, width, height };
+}
+
+function drawGrid(context, width, height, padding, rows = 4) {
+  context.strokeStyle = "rgba(244,240,230,0.08)";
+  context.lineWidth = 1;
+  for (let row = 0; row <= rows; row += 1) {
+    const y = padding.top + ((height - padding.top - padding.bottom) * row) / rows;
+    context.beginPath();
+    context.moveTo(padding.left, y);
+    context.lineTo(width - padding.right, y);
+    context.stroke();
+  }
+}
+
+function drawPareto(result) {
+  const canvas = $("#pareto-chart");
+  const { context, width, height } = prepareCanvas(canvas);
+  context.clearRect(0, 0, width, height);
+  const padding = { left: 36, right: 12, top: 16, bottom: 27 };
+  drawGrid(context, width, height, padding);
+  const series = ["QUBO", "Top relevance"];
+  const colors = { QUBO: "#d9ff70", "Top relevance": "#9f92ff" };
+  const allScores = result.frontier.map((point) => point.score);
+  let minimum = Math.min(...allScores);
+  let maximum = Math.max(...allScores);
+  const span = Math.max(0.04, maximum - minimum);
+  minimum -= span * 0.17;
+  maximum += span * 0.12;
+  const maxK = Math.max(...result.frontier.map((point) => point.k));
+  const x = (k) =>
+    padding.left + ((k - 1) / Math.max(1, maxK - 1)) * (width - padding.left - padding.right);
+  const y = (score) =>
+    padding.top +
+    ((maximum - score) / (maximum - minimum)) * (height - padding.top - padding.bottom);
+
+  context.font = "9px SFMono-Regular, monospace";
+  context.fillStyle = "rgba(244,240,230,0.35)";
+  context.textAlign = "right";
+  context.fillText(maximum.toFixed(2), padding.left - 7, padding.top + 3);
+  context.fillText(minimum.toFixed(2), padding.left - 7, height - padding.bottom);
+  context.textAlign = "center";
+  const uniqueK = [...new Set(result.frontier.map((point) => point.k))];
+  uniqueK.forEach((k) => {
+    context.fillText(k, x(k), height - 8);
+  });
+
+  series.forEach((method) => {
+    const points = result.frontier.filter((point) => point.method === method);
+    context.strokeStyle = colors[method];
+    context.lineWidth = method === "QUBO" ? 2.3 : 1.4;
+    context.setLineDash(method === "QUBO" ? [] : [5, 5]);
+    context.beginPath();
+    points.forEach((point, index) => {
+      if (index === 0) context.moveTo(x(point.k), y(point.score));
+      else context.lineTo(x(point.k), y(point.score));
+    });
+    context.stroke();
+    context.setLineDash([]);
+    points.forEach((point) => {
+      context.fillStyle = colors[method];
+      context.beginPath();
+      context.arc(x(point.k), y(point.score), method === "QUBO" ? 3.5 : 2.5, 0, Math.PI * 2);
+      context.fill();
+      if (point.k === result.selection.k && method === "QUBO") {
+        context.strokeStyle = colors[method];
+        context.lineWidth = 1;
+        context.beginPath();
+        context.arc(x(point.k), y(point.score), 8, 0, Math.PI * 2);
+        context.stroke();
+      }
+    });
+  });
+}
+
+function drawEnergy(result) {
+  const canvas = $("#energy-chart");
+  const { context, width, height } = prepareCanvas(canvas);
+  context.clearRect(0, 0, width, height);
+  const padding = { left: 32, right: 10, top: 16, bottom: 27 };
+  drawGrid(context, width, height, padding);
+  const points = result.annealing.curve;
+  const energies = points.map((point) => point.energy);
+  let minimum = Math.min(...energies);
+  let maximum = Math.max(...energies);
+  const span = Math.max(0.1, maximum - minimum);
+  minimum -= span * 0.1;
+  maximum += span * 0.1;
+  const maxSweep = Math.max(...points.map((point) => point.sweep));
+  const x = (sweep) =>
+    padding.left +
+    (sweep / maxSweep) * (width - padding.left - padding.right);
+  const y = (energy) =>
+    padding.top +
+    ((maximum - energy) / (maximum - minimum)) * (height - padding.top - padding.bottom);
+
+  const gradient = context.createLinearGradient(0, padding.top, 0, height - padding.bottom);
+  gradient.addColorStop(0, "rgba(217,255,112,0.28)");
+  gradient.addColorStop(1, "rgba(217,255,112,0)");
+  context.beginPath();
+  points.forEach((point, index) => {
+    if (index === 0) context.moveTo(x(point.sweep), y(point.energy));
+    else context.lineTo(x(point.sweep), y(point.energy));
+  });
+  context.lineTo(x(maxSweep), height - padding.bottom);
+  context.lineTo(padding.left, height - padding.bottom);
+  context.closePath();
+  context.fillStyle = gradient;
+  context.fill();
+
+  context.beginPath();
+  points.forEach((point, index) => {
+    if (index === 0) context.moveTo(x(point.sweep), y(point.energy));
+    else context.lineTo(x(point.sweep), y(point.energy));
+  });
+  context.strokeStyle = "#d9ff70";
+  context.lineWidth = 2;
+  context.stroke();
+  const finalPoint = points[points.length - 1];
+  context.fillStyle = "#d9ff70";
+  context.beginPath();
+  context.arc(x(finalPoint.sweep), y(finalPoint.energy), 4, 0, Math.PI * 2);
+  context.fill();
+
+  context.fillStyle = "rgba(244,240,230,0.35)";
+  context.font = "9px SFMono-Regular, monospace";
+  context.textAlign = "left";
+  context.fillText("0", padding.left, height - 8);
+  context.textAlign = "right";
+  context.fillText(maxSweep, width - padding.right, height - 8);
+}
+
+function drawQubo(result) {
+  const canvas = $("#qubo-chart");
+  const { context, width, height } = prepareCanvas(canvas);
+  context.clearRect(0, 0, width, height);
+  const matrix = result.qubo.matrix;
+  const n = matrix.length;
+  const size = Math.min(width, height) - 8;
+  const cell = size / n;
+  const offsetX = (width - size) / 2;
+  const offsetY = (height - size) / 2;
+  const maximum = Math.max(...matrix.flat().map((value) => Math.abs(value)), 1e-9);
+  for (let i = 0; i < n; i += 1) {
+    for (let j = 0; j < n; j += 1) {
+      const value = matrix[i][j];
+      const strength = Math.min(1, Math.abs(value) / maximum);
+      const selected = result.selection.indices.includes(i) && result.selection.indices.includes(j);
+      const color = value >= 0 ? [159, 146, 255] : [217, 255, 112];
+      const alpha = 0.07 + strength * 0.65;
+      context.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${alpha})`;
+      context.fillRect(offsetX + j * cell, offsetY + i * cell, cell - 0.6, cell - 0.6);
+      if (selected) {
+        context.strokeStyle = "rgba(255,141,114,0.5)";
+        context.lineWidth = 0.7;
+        context.strokeRect(offsetX + j * cell, offsetY + i * cell, cell - 0.6, cell - 0.6);
+      }
+    }
+  }
+}
+
+function downloadJSON(filename, payload) {
+  const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], {
+    type: "application/json",
+  });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(link.href);
+}
+
+function drawHero(time = 0) {
+  const canvas = $("#hero-canvas");
+  if (!canvas) return;
+  const { context, width, height } = prepareCanvas(canvas);
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const radius = Math.min(width, height) * 0.38;
+  context.clearRect(0, 0, width, height);
+  for (let ring = 0; ring < 4; ring += 1) {
+    context.beginPath();
+    const steps = 110;
+    for (let step = 0; step <= steps; step += 1) {
+      const angle = (step / steps) * Math.PI * 2;
+      const wobble =
+        Math.sin(angle * (3 + ring) + time * 0.00035 + ring) * (7 + ring * 2);
+      const localRadius = radius * (0.32 + ring * 0.19) + wobble;
+      const x = centerX + Math.cos(angle) * localRadius;
+      const y = centerY + Math.sin(angle) * localRadius * 0.64;
+      if (step === 0) context.moveTo(x, y);
+      else context.lineTo(x, y);
+    }
+    context.strokeStyle =
+      ring === 2 ? "rgba(217,255,112,0.34)" : "rgba(159,146,255,0.15)";
+    context.lineWidth = ring === 2 ? 1.4 : 0.8;
+    context.stroke();
+  }
+  const nodes = 14;
+  for (let index = 0; index < nodes; index += 1) {
+    const angle = (index / nodes) * Math.PI * 2 + time * 0.00008;
+    const nodeRadius = radius * (0.38 + (index % 4) * 0.16);
+    const x = centerX + Math.cos(angle) * nodeRadius;
+    const y = centerY + Math.sin(angle) * nodeRadius * 0.64;
+    context.fillStyle = index % 5 === 0 ? "#d9ff70" : "rgba(244,240,230,0.45)";
+    context.beginPath();
+    context.arc(x, y, index % 5 === 0 ? 3 : 1.7, 0, Math.PI * 2);
+    context.fill();
+  }
+  if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    window.requestAnimationFrame(drawHero);
+  }
+}
+
+elements.budget.addEventListener("input", updateBudgetLabel);
+elements.redundancy.addEventListener("input", updateRedundancyLabel);
+elements.run.addEventListener("click", runExperiment);
+elements.file.addEventListener("change", (event) => handleFile(event.target.files[0]));
+$$(".dataset-option").forEach((button) =>
+  button.addEventListener("click", () => selectDemo(button)),
+);
+$("#download-result").addEventListener("click", () => {
+  if (state.result) downloadJSON("qubolens-result.json", state.result);
+});
+$("#download-qubo").addEventListener("click", () => {
+  if (state.result) downloadJSON("qubolens-qubo.json", state.result.qubo.export);
+});
+
+let resizeTimer;
+window.addEventListener("resize", () => {
+  window.clearTimeout(resizeTimer);
+  resizeTimer = window.setTimeout(() => {
+    if (state.result) {
+      drawPareto(state.result);
+      drawEnergy(state.result);
+      drawQubo(state.result);
+    }
+  }, 120);
+});
+
+updateBudgetLabel();
+updateRedundancyLabel();
+window.requestAnimationFrame(drawHero);
+runExperiment();

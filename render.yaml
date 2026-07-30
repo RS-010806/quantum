@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: qubolens
+    runtime: python
+    plan: free
+    region: frankfurt
+    buildCommand: python -m compileall -q qubolens && python -m unittest discover -s tests -q
+    startCommand: python -m qubolens.server
+    healthCheckPath: /api/health
+    autoDeployTrigger: checksPass

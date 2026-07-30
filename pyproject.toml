@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qubolens"
+version = "1.0.0"
+description = "Visual feature selection with a built-in classical optimizer."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Rishi" }]
+keywords = [
+  "quantum-inspired",
+  "qubo",
+  "feature-selection",
+  "machine-learning",
+  "simulated-annealing",
+  "ml-efficiency",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/RS-010806/quantum"
+Repository = "https://github.com/RS-010806/quantum"
+Issues = "https://github.com/RS-010806/quantum/issues"
+
+[project.scripts]
+qubolens = "qubolens.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["qubolens*"]
+
+[tool.setuptools.package-data]
+qubolens = ["web/*.html", "web/*.css", "web/*.js", "web/*.png"]
