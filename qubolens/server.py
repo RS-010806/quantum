@@ -282,7 +282,11 @@ class QUBOLensHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header(
             "Cache-Control",
-            "public, max-age=300" if target.name != "index.html" else "no-cache",
+            (
+                "no-cache"
+                if target.suffix in {".html", ".css", ".js"}
+                else "public, max-age=3600"
+            ),
         )
         self._security_headers()
         self.end_headers()

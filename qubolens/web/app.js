@@ -90,6 +90,13 @@ const elements = {
   previewBody: $("#preview-body"),
   previewNote: $("#preview-note"),
   advancedSettings: $("#advanced-settings"),
+  uploadTab: $("#upload-tab"),
+  sampleTab: $("#sample-tab"),
+  uploadPanel: $("#upload-panel"),
+  samplePanel: $("#sample-panel"),
+  sampleSelect: $("#sample-dataset"),
+  analysisControls: $("#analysis-controls"),
+  labEmpty: $("#lab-empty"),
 };
 
 function setRangeProgress(input) {
@@ -166,7 +173,10 @@ function syncSetupState() {
   const ready = Boolean(state.source) && !state.uploadError;
   elements.budgetFieldset.disabled = !ready;
   elements.run.disabled = !ready || state.running;
-  elements.advancedSettings.classList.toggle("hidden", !ready);
+  elements.analysisControls.classList.toggle("hidden", !ready);
+  elements.labEmpty.classList.toggle("hidden", Boolean(state.source));
+  elements.uploadTab.disabled = state.running;
+  elements.sampleTab.disabled = state.running;
   elements.setupStatus.textContent = ready
     ? state.source === "upload"
       ? "Your data is ready"
@@ -188,6 +198,46 @@ function showSetupError(message) {
   elements.uploadInspection.classList.remove("hidden");
   elements.uploadInspection.classList.add("warning");
   syncSetupState();
+}
+
+function resetDataSelection() {
+  if (state.running) return;
+  invalidateResult();
+  state.source = null;
+  state.dataset = "";
+  state.fileBase64 = "";
+  state.fileName = "";
+  state.headers = [];
+  state.inspection = null;
+  state.datasetMetadata = null;
+  state.uploadError = "";
+  elements.file.value = "";
+  elements.sampleSelect.value = "";
+  elements.uploadLabel.textContent = "Choose a data file";
+  elements.uploadInspection.classList.add("hidden");
+  elements.uploadInspection.classList.remove("warning");
+  elements.targetControl.classList.add("hidden");
+  elements.target.replaceChildren();
+  elements.scenarioGuide.classList.add("hidden");
+  elements.selectedDataDownload.classList.add("hidden");
+  syncSetupState();
+}
+
+function setSourceMode(mode) {
+  if (state.running) return;
+  const uploadMode = mode === "upload";
+  if (
+    (uploadMode && state.source === "demo") ||
+    (!uploadMode && state.source === "upload")
+  ) {
+    resetDataSelection();
+  }
+  elements.uploadTab.classList.toggle("active", uploadMode);
+  elements.sampleTab.classList.toggle("active", !uploadMode);
+  elements.uploadTab.setAttribute("aria-selected", String(uploadMode));
+  elements.sampleTab.setAttribute("aria-selected", String(!uploadMode));
+  elements.uploadPanel.classList.toggle("hidden", !uploadMode);
+  elements.samplePanel.classList.toggle("hidden", uploadMode);
 }
 
 function updateRedundancyLabel() {
@@ -275,16 +325,14 @@ async function loadDemoMetadata(slug) {
   });
 }
 
-async function selectDemo(button) {
+async function selectDemo(slug) {
+  if (!slug) {
+    resetDataSelection();
+    return;
+  }
   invalidateResult();
-  $$(".dataset-option").forEach((option) => {
-    option.classList.remove("active");
-    option.setAttribute("aria-pressed", "false");
-  });
-  button.classList.add("active");
-  button.setAttribute("aria-pressed", "true");
   state.source = "demo";
-  state.dataset = button.dataset.dataset;
+  state.dataset = slug;
   state.fileBase64 = "";
   state.fileName = "";
   state.headers = [];
@@ -295,8 +343,8 @@ async function selectDemo(button) {
   elements.uploadLabel.textContent = "Choose a data file";
   elements.uploadInspection.classList.add("hidden");
   elements.targetControl.classList.add("hidden");
-  elements.budget.max = button.dataset.features;
-  elements.budget.value = Math.min(6, Number(button.dataset.features));
+  elements.budget.max = Number(SCENARIOS[state.dataset].inputs);
+  elements.budget.value = Math.min(6, Number(elements.budget.max));
   updateScenario(SCENARIOS[state.dataset]);
   elements.scenarioGuide.classList.remove("hidden");
   elements.previewFormat.textContent = "Loading sample preview…";
@@ -405,10 +453,7 @@ async function handleFile(file) {
   state.inspection = null;
   state.datasetMetadata = null;
   state.uploadError = "";
-  $$(".dataset-option").forEach((option) => {
-    option.classList.remove("active");
-    option.setAttribute("aria-pressed", "false");
-  });
+  elements.sampleSelect.value = "";
   elements.scenarioGuide.classList.add("hidden");
   elements.targetControl.classList.add("hidden");
   elements.target.replaceChildren();
@@ -529,11 +574,14 @@ async function runExperiment() {
   elements.resultQuestion.textContent =
     "The search is measuring useful signal, repeated information, and the exact input limit.";
   const progressTimer = startProgress();
+  const controller = new AbortController();
+  const requestTimeout = window.setTimeout(() => controller.abort(), 30_000);
   try {
     const response = await fetch("/api/optimize", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(buildPayload()),
+      signal: controller.signal,
     });
     const payload = await response.json();
     if (!response.ok) {
@@ -547,9 +595,14 @@ async function runExperiment() {
     renderResult(payload);
     window.setTimeout(() => elements.progressShell.classList.add("hidden"), 550);
   } catch (error) {
-    window.clearInterval(progressTimer);
-    showError(error.message || "The experiment failed.");
+    showError(
+      error.name === "AbortError"
+        ? "The run took too long and was stopped. Try Quick search or a smaller dataset."
+        : error.message || "The experiment failed.",
+    );
   } finally {
+    window.clearTimeout(requestTimeout);
+    window.clearInterval(progressTimer);
     state.running = false;
     syncSetupState();
   }
@@ -971,6 +1024,7 @@ function initializePointerGlow() {
   let frame = 0;
   let x = 0;
   let y = 0;
+  let positioned = false;
   const positionGlow = () => {
     glow.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`;
     frame = 0;
@@ -980,7 +1034,16 @@ function initializePointerGlow() {
     (event) => {
       x = event.clientX;
       y = event.clientY;
+      if (!positioned) {
+        positionGlow();
+        positioned = true;
+      }
       glow.classList.add("visible");
+      glow.classList.toggle(
+        "interactive",
+        event.target instanceof Element &&
+          Boolean(event.target.closest("button, a, input, select, summary, label")),
+      );
       if (!frame) frame = window.requestAnimationFrame(positionGlow);
     },
     { passive: true },
@@ -992,8 +1055,12 @@ function initializePointerGlow() {
       y = event.clientY;
       positionGlow();
       glow.classList.add("visible", "pressed");
-      window.setTimeout(() => glow.classList.remove("pressed"), 360);
     },
+    { passive: true },
+  );
+  window.addEventListener(
+    "pointerup",
+    () => glow.classList.remove("pressed"),
     { passive: true },
   );
   document.documentElement.addEventListener("mouseleave", () =>
@@ -1008,6 +1075,11 @@ elements.budget.addEventListener("input", () => {
 elements.redundancy.addEventListener("input", updateRedundancyLabel);
 elements.run.addEventListener("click", runExperiment);
 elements.file.addEventListener("change", (event) => handleFile(event.target.files[0]));
+elements.uploadTab.addEventListener("click", () => setSourceMode("upload"));
+elements.sampleTab.addEventListener("click", () => setSourceMode("sample"));
+elements.sampleSelect.addEventListener("change", (event) =>
+  selectDemo(event.target.value),
+);
 elements.target.addEventListener("change", async () => {
   invalidateResult();
   elements.run.disabled = true;
@@ -1023,9 +1095,6 @@ elements.target.addEventListener("change", async () => {
     syncSetupState();
   }
 });
-$$(".dataset-option").forEach((button) =>
-  button.addEventListener("click", () => selectDemo(button)),
-);
 $$('input[name="quality"]').forEach((input) =>
   input.addEventListener("change", markSettingsChanged),
 );

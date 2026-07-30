@@ -16,13 +16,13 @@ the result, the comparison, and the search behavior in one place.
 
 ## User flow
 
-1. Upload a supported data file, or choose a complete sample for a guided test.
-2. Confirm the target and inspect the original rows, source columns, and
-   prepared input names.
+1. Use the Upload or Sample tab to choose a data source.
+2. Confirm the target and compact data summary. Raw rows and prepared input
+   names remain inside an optional disclosure.
 3. Choose how many prepared inputs to keep.
-4. Run the search. The result panel is not shown before this action.
-5. Review the answer, QUBO checks, chosen inputs, and score comparisons.
-6. Open optional settings or technical charts only when needed.
+4. Run the quick search. No result is shown before this action.
+5. Review the recommendation, selected inputs, score chart, and fair comparison.
+6. Open the QUBO and validation disclosure only when technical detail is useful.
 
 ## Technology
 

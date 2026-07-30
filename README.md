@@ -81,17 +81,16 @@ Then open [http://localhost:8080](http://localhost:8080).
 
 ## Use the guided examples
 
-1. Scroll to **Just exploring?** and choose the device-failure or cloud-cost
-   sample.
-2. Inspect the row preview, source-column count, and prepared input names.
-   Select **Download all rows** if you want the complete CSV.
+1. Open **Try a sample** in the lab and choose the device-failure or cloud-cost
+   dataset.
+2. Review the compact data summary. Open **Inspect rows and preparation** only
+   when you want the raw preview and prepared input names.
 3. Use the slider to choose how many inputs you want to keep. Six is a useful
    starting point.
 4. Select **Show me the best inputs**. The result area appears only now.
-5. Read the answer, score comparisons, QUBO checks, and chosen inputs from top
-   to bottom.
-6. Open **Explore how the result was found** only if you want the search charts
-   or reusable matrix.
+5. Read the recommendation, chosen inputs, score chart, and comparison.
+6. Open **QUBO and validation details** only if you want the formula, constraint
+   checks, search trace, or reusable matrix.
 
 For a yes-or-no prediction, the app reports ROC AUC: `0.50` is random ordering
 and `1.00` is perfect ordering. For a numeric prediction, it reports R²: `0.00`
@@ -103,7 +102,8 @@ In the web app:
 
 1. Select **Choose a data file** at the top of the lab.
 2. Confirm the detected rows and choose the column you want to predict.
-3. Review the raw preview and the model-ready input names.
+3. Open **Inspect rows and preparation** if you want to verify the raw preview
+   and model-ready input names.
 4. Set the number of prepared inputs to keep.
 5. Select **Analyze the best inputs**.
 
