@@ -1,10 +1,11 @@
 const state = {
-  source: "demo",
-  dataset: "edge-failure",
+  source: null,
+  dataset: "",
   fileBase64: "",
   fileName: "",
   headers: [],
   inspection: null,
+  datasetMetadata: null,
   uploadError: "",
   result: null,
   running: false,
@@ -17,10 +18,13 @@ const SCENARIOS = {
       "This simulated dataset contains 720 device snapshots. Each snapshot has 18 sensor readings, and the goal is to predict whether that device fails within the next 24 hours.",
     rows: "720",
     rowsLabel: "device snapshots",
+    columns: "18",
+    columnsLabel: "source inputs",
     inputs: "18",
-    inputsLabel: "sensor readings",
+    inputsLabel: "prepared inputs",
     target: "Yes / no",
-    targetLabel: "prediction",
+    targetLabel: "target type",
+    format: "Complete synthetic CSV",
   },
   "cloud-cost": {
     question: "Which workload signals help explain hourly cloud cost?",
@@ -28,10 +32,13 @@ const SCENARIOS = {
       "This simulated dataset contains 680 hourly workload records. Each record has 16 service signals, and the goal is to estimate its hourly cost in US dollars.",
     rows: "680",
     rowsLabel: "hourly workloads",
+    columns: "16",
+    columnsLabel: "source inputs",
     inputs: "16",
-    inputsLabel: "service signals",
-    target: "US dollars",
-    targetLabel: "prediction",
+    inputsLabel: "prepared inputs",
+    target: "Number",
+    targetLabel: "target type",
+    format: "Complete synthetic CSV",
   },
 };
 
@@ -69,6 +76,20 @@ const elements = {
   scenarioTarget: $("#scenario-target"),
   scenarioTargetLabel: $("#scenario-target-label"),
   resultDetails: $("#result-details"),
+  workbench: $("#workbench"),
+  setupStatus: $("#setup-status"),
+  scenarioGuide: $("#scenario-guide"),
+  scenarioColumns: $("#scenario-columns"),
+  scenarioColumnsLabel: $("#scenario-columns-label"),
+  budgetFieldset: $("#budget-fieldset"),
+  selectedDataDownload: $("#selected-data-download"),
+  previewFormat: $("#preview-format"),
+  previewColumns: $("#preview-columns"),
+  previewPrepared: $("#preview-prepared"),
+  previewHead: $("#preview-head"),
+  previewBody: $("#preview-body"),
+  previewNote: $("#preview-note"),
+  advancedSettings: $("#advanced-settings"),
 };
 
 function setRangeProgress(input) {
@@ -80,6 +101,13 @@ function setRangeProgress(input) {
 }
 
 function updateBudgetLabel() {
+  if (!state.source) {
+    elements.budgetValue.textContent = "—";
+    elements.budgetHelp.textContent =
+      "Choose a dataset first. We will explain how many usable inputs it contains.";
+    updateRunLabel();
+    return;
+  }
   const kept = Number(elements.budget.value);
   const total = Number(elements.budget.max);
   elements.budgetValue.textContent = `${kept} / ${total}`;
@@ -96,7 +124,9 @@ function updateBudgetLabel() {
 function updateRunLabel() {
   if (state.running) return;
   const kept = Number(elements.budget.value);
-  if (state.source === "upload" && state.uploadError) {
+  if (!state.source) {
+    elements.runLabel.textContent = "Choose data to continue";
+  } else if (state.source === "upload" && state.uploadError) {
     elements.runLabel.textContent = "Choose a different target";
   } else {
     elements.runLabel.textContent =
@@ -111,16 +141,53 @@ function updateScenario(scenario) {
   elements.scenarioDescription.textContent = scenario.description;
   elements.scenarioRows.textContent = scenario.rows;
   elements.scenarioRowsLabel.textContent = scenario.rowsLabel;
+  elements.scenarioColumns.textContent = scenario.columns;
+  elements.scenarioColumnsLabel.textContent = scenario.columnsLabel;
   elements.scenarioInputs.textContent = scenario.inputs;
   elements.scenarioInputsLabel.textContent = scenario.inputsLabel;
   elements.scenarioTarget.textContent = scenario.target;
   elements.scenarioTargetLabel.textContent = scenario.targetLabel;
 }
 
-function markSettingsChanged(message = "Settings ready · run to update") {
-  if (!state.result || state.running) return;
-  elements.resultStatus.innerHTML =
-    `<span class="pulse-dot" aria-hidden="true"></span>${message}`;
+function invalidateResult() {
+  if (state.running) return;
+  state.result = null;
+  elements.results.classList.add("hidden");
+  elements.workbench.classList.remove("has-results");
+  $("#download-result").disabled = true;
+  $("#download-qubo").disabled = true;
+}
+
+function markSettingsChanged() {
+  invalidateResult();
+}
+
+function syncSetupState() {
+  const ready = Boolean(state.source) && !state.uploadError;
+  elements.budgetFieldset.disabled = !ready;
+  elements.run.disabled = !ready || state.running;
+  elements.advancedSettings.classList.toggle("hidden", !ready);
+  elements.setupStatus.textContent = ready
+    ? state.source === "upload"
+      ? "Your data is ready"
+      : "Sample ready"
+    : state.uploadError
+      ? "Needs attention"
+      : "Waiting for data";
+  updateRunLabel();
+}
+
+function revealResults() {
+  elements.workbench.classList.add("has-results");
+  elements.results.classList.remove("hidden");
+}
+
+function showSetupError(message) {
+  state.uploadError = message;
+  elements.uploadInspection.textContent = message;
+  elements.uploadInspection.classList.remove("hidden");
+  elements.uploadInspection.classList.add("warning");
+  syncSetupState();
 }
 
 function updateRedundancyLabel() {
@@ -129,7 +196,87 @@ function updateRedundancyLabel() {
   markSettingsChanged();
 }
 
-function selectDemo(button) {
+function renderDataPreview({
+  columns,
+  preview,
+  target,
+  format,
+  preparedColumns = [],
+  downloadUrl = "",
+  totalRows,
+}) {
+  const sourceColumns = columns.filter((column) => column !== target);
+  const shownColumns = sourceColumns.slice(0, 4);
+  if (target && !shownColumns.includes(target)) shownColumns.push(target);
+  elements.previewFormat.textContent = format;
+  elements.previewColumns.textContent =
+    `${sourceColumns.length} source inputs before preparation: ` +
+    `${sourceColumns.slice(0, 8).map(humanizeFeatureName).join(", ")}` +
+    `${sourceColumns.length > 8 ? `, and ${sourceColumns.length - 8} more` : ""}.`;
+  const prepared = preparedColumns.length ? preparedColumns : sourceColumns;
+  elements.previewPrepared.textContent =
+    `${prepared.length} model-ready inputs: ` +
+    `${prepared.slice(0, 10).map(humanizeFeatureName).join(", ")}` +
+    `${prepared.length > 10 ? `, and ${prepared.length - 10} more` : ""}.`;
+  elements.previewHead.replaceChildren();
+  const headRow = document.createElement("tr");
+  shownColumns.forEach((column) => {
+    const cell = document.createElement("th");
+    cell.scope = "col";
+    cell.textContent =
+      column === target
+        ? `${humanizeFeatureName(column)} · target`
+        : humanizeFeatureName(column);
+    headRow.append(cell);
+  });
+  elements.previewHead.append(headRow);
+  elements.previewBody.replaceChildren();
+  preview.slice(0, 4).forEach((record) => {
+    const row = document.createElement("tr");
+    shownColumns.forEach((column) => {
+      const cell = document.createElement("td");
+      const value = record[column];
+      cell.textContent =
+        typeof value === "number" ? Number(value).toFixed(3) : String(value ?? "—");
+      row.append(cell);
+    });
+    elements.previewBody.append(row);
+  });
+  elements.previewNote.textContent = downloadUrl
+    ? `Showing 4 of ${Number(totalRows).toLocaleString()} raw rows. Download the CSV to inspect every value.`
+    : `Showing up to 4 raw rows from your file. Your original file remains unchanged and is not saved.`;
+  if (downloadUrl) {
+    elements.selectedDataDownload.href = downloadUrl;
+    elements.selectedDataDownload.download =
+      `qubolens-${state.dataset || "sample"}.csv`;
+    elements.selectedDataDownload.classList.remove("hidden");
+  } else {
+    elements.selectedDataDownload.classList.add("hidden");
+    elements.selectedDataDownload.removeAttribute("href");
+  }
+}
+
+async function loadDemoMetadata(slug) {
+  const response = await fetch(`/api/datasets/${slug}`);
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.error || "The sample preview could not be loaded.");
+  }
+  if (state.source !== "demo" || state.dataset !== slug) return;
+  state.datasetMetadata = payload;
+  renderDataPreview({
+    columns: [...payload.feature_names, payload.target],
+    preview: payload.preview,
+    target: payload.target,
+    format: SCENARIOS[slug].format,
+    preparedColumns: payload.feature_names,
+    downloadUrl: payload.download_url,
+    totalRows: payload.samples,
+  });
+}
+
+async function selectDemo(button) {
+  invalidateResult();
   $$(".dataset-option").forEach((option) => {
     option.classList.remove("active");
     option.setAttribute("aria-pressed", "false");
@@ -142,6 +289,7 @@ function selectDemo(button) {
   state.fileName = "";
   state.headers = [];
   state.inspection = null;
+  state.datasetMetadata = null;
   state.uploadError = "";
   elements.file.value = "";
   elements.uploadLabel.textContent = "Choose a data file";
@@ -150,8 +298,20 @@ function selectDemo(button) {
   elements.budget.max = button.dataset.features;
   elements.budget.value = Math.min(6, Number(button.dataset.features));
   updateScenario(SCENARIOS[state.dataset]);
+  elements.scenarioGuide.classList.remove("hidden");
+  elements.previewFormat.textContent = "Loading sample preview…";
+  elements.previewColumns.textContent = "";
+  elements.previewPrepared.textContent = "Loading prepared input names…";
+  elements.previewHead.replaceChildren();
+  elements.previewBody.replaceChildren();
   updateBudgetLabel();
-  markSettingsChanged();
+  syncSetupState();
+  try {
+    await loadDemoMetadata(state.dataset);
+  } catch (error) {
+    elements.previewNote.textContent =
+      error.message || "The sample preview could not be loaded.";
+  }
 }
 
 function updateUploadedScenario() {
@@ -172,10 +332,21 @@ function updateUploadedScenario() {
       `QUBOLens detected ${Number(inspection.rows).toLocaleString()} rows and will prepare numbers, dates, categories, and text automatically.`,
     rows: Number(inspection.rows).toLocaleString(),
     rowsLabel: "data rows",
+    columns: String(inspection.source_columns),
+    columnsLabel: "source inputs",
     inputs: String(prepared),
     inputsLabel: "prepared inputs",
     target: taskLabel,
     targetLabel: "target type",
+  });
+  elements.scenarioGuide.classList.remove("hidden");
+  renderDataPreview({
+    columns: inspection.columns,
+    preview: inspection.preview || [],
+    target,
+    format: inspection.format,
+    preparedColumns: inspection.prepared_feature_names || [],
+    totalRows: inspection.rows,
   });
 }
 
@@ -213,19 +384,38 @@ async function inspectCurrentUpload(target = "") {
   );
   elements.uploadInspection.textContent = state.uploadError
     ? `${payload.format} detected · ${Number(payload.rows).toLocaleString()} rows · ${state.uploadError}`
-    : `${payload.format} detected · ${Number(payload.rows).toLocaleString()} rows · ${Number(
-        payload.prepared_features,
-      )} prepared inputs`;
+    : `${payload.format} detected · ${Number(payload.rows).toLocaleString()} rows · ${
+        payload.source_columns
+      } source inputs → ${Number(payload.prepared_features)} prepared inputs`;
   elements.uploadInspection.classList.toggle("warning", Boolean(state.uploadError));
   elements.uploadInspection.classList.remove("hidden");
   updateBudgetLabel();
   updateUploadedScenario();
+  syncSetupState();
 }
 
 async function handleFile(file) {
   if (!file) return;
+  invalidateResult();
+  state.source = null;
+  state.dataset = "";
+  state.fileBase64 = "";
+  state.fileName = "";
+  state.headers = [];
+  state.inspection = null;
+  state.datasetMetadata = null;
+  state.uploadError = "";
+  $$(".dataset-option").forEach((option) => {
+    option.classList.remove("active");
+    option.setAttribute("aria-pressed", "false");
+  });
+  elements.scenarioGuide.classList.add("hidden");
+  elements.targetControl.classList.add("hidden");
+  elements.target.replaceChildren();
+  elements.uploadLabel.textContent = "Choose a data file";
+  syncSetupState();
   if (file.size > 20_000_000) {
-    showError("That file is larger than the 20 MB interactive limit.");
+    showSetupError("That file is larger than the 20 MB interactive limit.");
     elements.file.value = "";
     return;
   }
@@ -241,22 +431,17 @@ async function handleFile(file) {
     elements.budget.value = 6;
     await inspectCurrentUpload();
   } catch (error) {
-    state.source = "demo";
+    state.source = null;
     state.fileBase64 = "";
     state.fileName = "";
     state.inspection = null;
     elements.file.value = "";
     elements.uploadLabel.textContent = "Choose a data file";
-    elements.uploadInspection.classList.add("hidden");
-    showError(error.message || "The file could not be read.");
+    showSetupError(error.message || "The file could not be read.");
     return;
   } finally {
-    elements.run.disabled = false;
+    syncSetupState();
   }
-  $$(".dataset-option").forEach((option) => {
-    option.classList.remove("active");
-    option.setAttribute("aria-pressed", "false");
-  });
   elements.uploadLabel.textContent = file.name;
   elements.target.replaceChildren();
   state.headers.forEach((header) => {
@@ -267,8 +452,7 @@ async function handleFile(file) {
     elements.target.append(option);
   });
   elements.targetControl.classList.remove("hidden");
-  elements.resultStatus.innerHTML =
-    '<span class="pulse-dot" aria-hidden="true"></span>Data ready · run to analyze';
+  syncSetupState();
 }
 
 function selectedQuality() {
@@ -321,21 +505,29 @@ function startProgress() {
 
 async function runExperiment() {
   if (state.running) return;
+  if (!state.source) {
+    showSetupError("Choose your data file or one of the complete samples first.");
+    return;
+  }
   if (state.source === "upload" && (!state.fileBase64 || !elements.target.value)) {
-    showError("Choose a data file and prediction target first.");
+    showSetupError("Choose a data file and prediction target first.");
     return;
   }
   if (state.source === "upload" && state.uploadError) {
-    showError(state.uploadError);
+    showSetupError(state.uploadError);
     return;
   }
+  revealResults();
   state.running = true;
   elements.results.setAttribute("aria-busy", "true");
   elements.run.disabled = true;
   elements.runLabel.textContent = "Searching…";
-  elements.content.classList.add("loading-soft");
+  elements.content.classList.add("hidden");
   elements.resultStatus.innerHTML =
     '<span class="pulse-dot" aria-hidden="true"></span>Finding feature mixes';
+  elements.resultTitle.textContent = elements.scenarioQuestion.textContent;
+  elements.resultQuestion.textContent =
+    "The search is measuring useful signal, repeated information, and the exact input limit.";
   const progressTimer = startProgress();
   try {
     const response = await fetch("/api/optimize", {
@@ -359,19 +551,18 @@ async function runExperiment() {
     showError(error.message || "The experiment failed.");
   } finally {
     state.running = false;
-    elements.run.disabled = false;
-    updateRunLabel();
+    syncSetupState();
   }
 }
 
 function showError(message) {
   elements.results.setAttribute("aria-busy", "false");
   elements.progressShell.classList.add("hidden");
-  elements.content.classList.remove("loading-soft");
+  elements.content.classList.add("hidden");
   elements.resultStatus.innerHTML =
     '<span class="pulse-dot" aria-hidden="true"></span>Needs attention';
-  $("#finding-title").textContent = "The run could not start.";
-  $("#finding-copy").textContent = message;
+  elements.resultTitle.textContent = "The run could not finish.";
+  elements.resultQuestion.textContent = message;
 }
 
 function formatScore(value) {
@@ -428,7 +619,7 @@ function setText(selector, value) {
 
 function renderResult(result) {
   elements.results.setAttribute("aria-busy", "false");
-  elements.content.classList.remove("loading-soft");
+  elements.content.classList.remove("hidden", "loading-soft");
   elements.resultStatus.innerHTML =
     '<span class="pulse-dot" aria-hidden="true"></span>Results ready';
   elements.resultTitle.textContent = result.dataset.question || result.dataset.name;
@@ -460,6 +651,7 @@ function renderResult(result) {
   const fullScoreDifference =
     Number(result.benchmark.qubo.score) -
     Number(result.benchmark.all_features.score);
+  setText("#metric-full-delta", formatComparison(fullScoreDifference));
   const qualityMessage =
     Math.abs(fullScoreDifference) < 0.015
       ? "Quality stayed close to using every input."
@@ -475,6 +667,21 @@ function renderResult(result) {
   setText(
     "#anneal-stat",
     `${result.annealing.reads} attempts · ${result.annealing.sweeps} steps`,
+  );
+  setText(
+    "#constraint-check",
+    `${result.selection.names.length} = ${result.selection.k} ✓`,
+  );
+  setText(
+    "#feasible-stat",
+    `${result.annealing.feasible_reads} / ${result.annealing.reads}`,
+  );
+  setText("#qubo-energy", Number(result.selection.energy).toFixed(3));
+  setText("#qubo-formula", result.qubo.formula);
+  setText("#validation-stat", `${result.dataset.samples.toLocaleString()} rows`);
+  setText(
+    "#cv-stat",
+    `${result.benchmark.qubo.cv_folds}-fold · same splits`,
   );
   setText("#energy-value", `${result.selection.k} selected`);
   setText(
@@ -802,6 +1009,7 @@ elements.redundancy.addEventListener("input", updateRedundancyLabel);
 elements.run.addEventListener("click", runExperiment);
 elements.file.addEventListener("change", (event) => handleFile(event.target.files[0]));
 elements.target.addEventListener("change", async () => {
+  invalidateResult();
   elements.run.disabled = true;
   elements.uploadInspection.textContent = "Checking this prediction target…";
   elements.uploadInspection.classList.remove("warning");
@@ -810,15 +1018,16 @@ elements.target.addEventListener("change", async () => {
     markSettingsChanged("Target changed · run to update");
   } catch (error) {
     state.uploadError = error.message || "This prediction target could not be checked.";
-    elements.uploadInspection.textContent = state.uploadError;
-    elements.uploadInspection.classList.add("warning");
-    showError(state.uploadError);
+    showSetupError(state.uploadError);
   } finally {
-    elements.run.disabled = false;
+    syncSetupState();
   }
 });
 $$(".dataset-option").forEach((button) =>
   button.addEventListener("click", () => selectDemo(button)),
+);
+$$('input[name="quality"]').forEach((input) =>
+  input.addEventListener("change", markSettingsChanged),
 );
 $("#download-result").addEventListener("click", () => {
   if (state.result) downloadJSON("qubolens-result.json", state.result);
@@ -849,9 +1058,8 @@ window.addEventListener("resize", () => {
   }, 120);
 });
 
-updateScenario(SCENARIOS[state.dataset]);
 updateBudgetLabel();
 updateRedundancyLabel();
+syncSetupState();
 initializePointerGlow();
 window.requestAnimationFrame(drawHero);
-runExperiment();

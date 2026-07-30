@@ -128,6 +128,12 @@ class DatasetTests(unittest.TestCase):
         self.assertEqual(inspected["format"], "Excel workbook")
         self.assertEqual(inspected["rows"], 36)
         self.assertEqual(inspected["columns"], ["first", "second", "target"])
+        self.assertEqual(inspected["source_columns"], 2)
+        self.assertEqual(len(inspected["preview"]), 4)
+        self.assertEqual(
+            inspected["prepared_features"],
+            len(inspected["prepared_feature_names"]),
+        )
         self.assertEqual(inspected["task"], "classification")
 
 

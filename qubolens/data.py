@@ -966,6 +966,8 @@ def inspect_tabular_upload(
         "sample_rows": len(upload.records),
         "sampled": upload.sampled,
         "columns": list(upload.headers),
+        "source_columns": len(upload.headers) - 1,
+        "preview": [dict(record) for record in upload.records[:4]],
         "target": selected_target,
         "prepared_features": min(MAX_MODEL_FEATURES, len(upload.headers) - 1),
         "task": "unknown",
@@ -981,6 +983,7 @@ def inspect_tabular_upload(
         result["target_error"] = str(error)
     else:
         result["prepared_features"] = dataset.n_features
+        result["prepared_feature_names"] = list(dataset.feature_names)
         result["task"] = dataset.task
         result["notes"] = list(dataset.notes)
         result["description"] = dataset.description

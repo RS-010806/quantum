@@ -16,13 +16,13 @@ the result, the comparison, and the search behavior in one place.
 
 ## User flow
 
-1. Open an included dataset or upload a supported data file.
-2. Choose how many features to keep.
-3. Run the prepared default search.
-4. Review the answer, chosen inputs, and comparison.
-5. Open optional settings or technical charts only when needed.
-
-The edge-failure example runs automatically when the page opens.
+1. Upload a supported data file, or choose a complete sample for a guided test.
+2. Confirm the target and inspect the original rows, source columns, and
+   prepared input names.
+3. Choose how many prepared inputs to keep.
+4. Run the search. The result panel is not shown before this action.
+5. Review the answer, QUBO checks, chosen inputs, and score comparisons.
+6. Open optional settings or technical charts only when needed.
 
 ## Technology
 
@@ -158,6 +158,32 @@ GET /api/health
 GET /api/datasets
 ```
 
+This returns the two sample summaries and their complete CSV download URLs.
+
+Inspect one sample, including its target, feature names, and first four rows:
+
+```http
+GET /api/datasets/edge-failure
+```
+
+Download every row:
+
+```http
+GET /api/datasets/edge-failure.csv
+GET /api/datasets/cloud-cost.csv
+```
+
+### Inspect an upload
+
+```http
+POST /api/inspect
+Content-Type: application/json
+```
+
+The response reports the detected format, total and sampled row counts, source
+columns, raw preview rows, inferred target type, prepared input count, prepared
+input names, and preparation notes.
+
 ### Run feature selection
 
 ```http
@@ -179,8 +205,8 @@ Example:
 ```
 
 The browser first sends the encoded file and optional target to
-`POST /api/inspect`. The response describes the detected format, row count,
-columns, target type, and prepared input count.
+`POST /api/inspect`. Changing the target repeats this inspection so the
+before-and-after input view stays accurate.
 
 Upload optimization requests use `source: "upload"` and add `file` (base64),
 `filename`, `target`, `task`, and `name`. The earlier `source: "csv"` request

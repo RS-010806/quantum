@@ -16,8 +16,10 @@ rewarding repeated information.
 
 ## What you can do
 
-- Start with a guided device-reliability or cloud-operations question.
+- Upload your own dataset first, or use a complete sample to learn the flow.
 - Upload CSV, TSV, delimited text, JSON, JSONL, or XLSX data.
+- Preview the original rows and the model-ready inputs before running anything.
+- Download every row of either sample dataset as CSV.
 - Choose exactly how many features to keep.
 - Compare the chosen set with a simple ranking and the full dataset.
 - See each chosen input, its connection to the target, and its overlap with the
@@ -58,8 +60,9 @@ cd quantum
 py -m qubolens.server
 ```
 
-Open [http://localhost:8000](http://localhost:8000). The first example runs
-automatically. Press `Ctrl+C` in the terminal to stop the app.
+Open [http://localhost:8000](http://localhost:8000). The lab waits for you to
+upload a file or choose a sample; no result runs automatically. Press `Ctrl+C`
+in the terminal to stop the app.
 
 If port `8000` is already in use:
 
@@ -78,13 +81,16 @@ Then open [http://localhost:8080](http://localhost:8080).
 
 ## Use the guided examples
 
-1. Choose **Device reliability** or **Cloud operations**.
-2. Use the slider to choose how many inputs you want to keep. Six is a useful
+1. Scroll to **Just exploring?** and choose the device-failure or cloud-cost
+   sample.
+2. Inspect the row preview, source-column count, and prepared input names.
+   Select **Download all rows** if you want the complete CSV.
+3. Use the slider to choose how many inputs you want to keep. Six is a useful
    starting point.
-3. Select **Show me the best inputs**.
-4. Read the result from top to bottom: the clear answer, the score, the chosen
-   inputs, and the fair comparison.
-5. Open **Explore how the result was found** only if you want the search charts
+4. Select **Show me the best inputs**. The result area appears only now.
+5. Read the answer, score comparisons, QUBO checks, and chosen inputs from top
+   to bottom.
+6. Open **Explore how the result was found** only if you want the search charts
    or reusable matrix.
 
 For a yes-or-no prediction, the app reports ROC AUC: `0.50` is random ordering
@@ -95,10 +101,15 @@ matches always predicting the average and `1.00` is perfect.
 
 In the web app:
 
-1. Open **Use my own data file** and choose a file.
-2. Choose the column you want to predict.
-3. Set the number of features to keep.
-4. Select **Analyze the best inputs**.
+1. Select **Choose a data file** at the top of the lab.
+2. Confirm the detected rows and choose the column you want to predict.
+3. Review the raw preview and the model-ready input names.
+4. Set the number of prepared inputs to keep.
+5. Select **Analyze the best inputs**.
+
+The first row of a delimited file, or the keys in a JSON record, must contain
+column names. Each later row or record should be one observation. Include one
+target column containing the outcome or number to predict.
 
 Upload support:
 

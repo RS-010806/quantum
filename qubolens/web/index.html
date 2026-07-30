@@ -52,12 +52,12 @@
           </p>
           <h1 id="hero-title">Keep the signal.<br /><em>Drop the extras.</em></h1>
           <p class="hero-lede">
-            Start with a guided example. Choose how many inputs to keep. QUBOLens
-            shows which ones it chose, whether quality changed, and why the result
-            matters.
+            Bring a dataset, choose how many inputs to keep, and inspect exactly
+            what changed. If you are learning, two complete samples walk you through
+            the same workflow.
           </p>
           <div class="hero-actions">
-            <a class="primary-button" href="#lab">Start a guided example</a>
+            <a class="primary-button" href="#lab">Open the data lab</a>
             <a class="text-link" href="#premise">
               Why this matters <span aria-hidden="true">↘</span>
             </a>
@@ -109,12 +109,12 @@
       <section class="lab-section" id="lab" aria-labelledby="lab-title">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Guided feature selection</p>
-            <h2 id="lab-title">Pick a question.<br />We explain the rest.</h2>
+            <p class="eyebrow">Data-first feature selection</p>
+            <h2 id="lab-title">Bring the data.<br />Then see the answer.</h2>
           </div>
           <p>
-            The defaults are ready to use. Start with either example, then read the
-            answer from top to bottom.
+            Nothing is calculated until you choose a file or a learning sample.
+            You can inspect the raw columns before running the algorithm.
           </p>
         </div>
 
@@ -122,155 +122,232 @@
           <li>
             <span>1</span>
             <div>
-              <strong>Choose a question</strong>
-              <small>Start with either guided example.</small>
+              <strong>Add your data</strong>
+              <small>Upload a file or choose a complete sample.</small>
             </div>
           </li>
           <li>
             <span>2</span>
             <div>
-              <strong>Set your input limit</strong>
-              <small>Six is a useful starting point.</small>
+              <strong>Check the question</strong>
+              <small>Confirm the target, raw columns, and input limit.</small>
             </div>
           </li>
           <li>
             <span>3</span>
             <div>
-              <strong>Run and read top to bottom</strong>
-              <small>Answer first, technical detail last.</small>
+              <strong>Run the QUBO search</strong>
+              <small>Results appear only after you ask for them.</small>
             </div>
           </li>
         </ol>
 
-        <div class="workbench">
+        <div class="workbench" id="workbench">
           <aside class="control-panel" aria-label="Experiment controls">
             <div class="panel-kicker">
-              <span>Start here</span>
-              <span class="status-badge">Defaults ready</span>
+              <span>Start with data</span>
+              <span class="status-badge" id="setup-status">Waiting for data</span>
             </div>
             <p class="control-intro">
-              Choose a question, decide how many inputs to keep, and run it.
+              Your file is the main path. The samples below are complete,
+              downloadable datasets for learning how the lab works.
             </p>
 
-            <fieldset>
-              <legend>1 · Choose a question</legend>
+            <section class="upload-first" aria-labelledby="upload-title">
+              <div class="setup-heading">
+                <span>1</span>
+                <div>
+                  <small>Recommended</small>
+                  <h3 id="upload-title">Upload your dataset</h3>
+                </div>
+              </div>
+              <label class="upload-zone" for="csv-file">
+                <input
+                  id="csv-file"
+                  type="file"
+                  accept=".csv,.tsv,.txt,.json,.jsonl,.ndjson,.xlsx,text/csv,text/tab-separated-values,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                />
+                <span class="upload-plus" aria-hidden="true">+</span>
+                <span>
+                  <strong id="upload-label">Choose a data file</strong>
+                  <small>Up to 20 MB · inspected in memory · never saved</small>
+                </span>
+              </label>
+              <div class="format-chips" aria-label="Supported file formats">
+                <span>CSV</span><span>TSV / delimited TXT</span
+                ><span>JSON / JSONL</span><span>XLSX</span>
+              </div>
+              <div class="file-requirements">
+                <strong>What should the file look like?</strong>
+                <ul>
+                  <li>The first row or JSON keys should be clear column names.</li>
+                  <li>Each following row should represent one device, customer, event, or observation.</li>
+                  <li>Include one target column: the outcome or number you want to predict.</li>
+                </ul>
+                <div class="mini-data-example" role="table" aria-label="Example upload layout">
+                  <span role="columnheader">temperature</span>
+                  <span role="columnheader">service_note</span>
+                  <span role="columnheader">failed ← target</span>
+                  <span role="cell">78.2</span>
+                  <span role="cell">heat warning</span>
+                  <span role="cell">yes</span>
+                </div>
+              </div>
+              <p class="upload-help">
+                Numbers, dates, categories, and free text are prepared
+                automatically. Large files use a repeatable sample of up to 5,000
+                rows so the interactive run stays responsive.
+              </p>
+              <p class="upload-inspection hidden" id="upload-inspection"></p>
+              <div class="target-control hidden" id="target-control">
+                <label for="target-column">What should QUBOLens predict?</label>
+                <select id="target-column"></select>
+              </div>
+            </section>
+
+            <div class="sample-divider">
+              <span>Just exploring?</span>
+              <p>
+                Use a synthetic sample to learn the workflow. Download it first if
+                you want to inspect every row.
+              </p>
+            </div>
+
+            <fieldset class="sample-fieldset">
+              <legend>Try a complete sample dataset</legend>
               <div class="dataset-options">
-                <button
-                  class="dataset-option active"
-                  type="button"
-                  data-dataset="edge-failure"
-                  data-features="18"
-                  aria-pressed="true"
-                >
-                  <span class="dataset-icon lavender" aria-hidden="true">01</span>
-                  <span class="dataset-option-copy">
-                    <small>Device reliability</small>
-                    <strong>Will this device fail soon?</strong>
-                    <em>Predict failure within 24 hours</em>
-                  </span>
-                  <span class="radio-mark" aria-hidden="true"></span>
-                </button>
-                <button
-                  class="dataset-option"
-                  type="button"
-                  data-dataset="cloud-cost"
-                  data-features="16"
-                  aria-pressed="false"
-                >
-                  <span class="dataset-icon amber" aria-hidden="true">02</span>
-                  <span class="dataset-option-copy">
-                    <small>Cloud operations</small>
-                    <strong>What drives hourly cost?</strong>
-                    <em>Estimate cost from workload signals</em>
-                  </span>
-                  <span class="radio-mark" aria-hidden="true"></span>
-                </button>
+                <article class="dataset-choice">
+                  <button
+                    class="dataset-option"
+                    type="button"
+                    data-dataset="edge-failure"
+                    data-features="18"
+                    aria-pressed="false"
+                  >
+                    <span class="dataset-icon lavender" aria-hidden="true">01</span>
+                    <span class="dataset-option-copy">
+                      <small>Binary prediction · synthetic</small>
+                      <strong>Device failure within 24 hours</strong>
+                      <em>720 device snapshots · 18 sensor inputs</em>
+                    </span>
+                    <span class="radio-mark" aria-hidden="true"></span>
+                  </button>
+                  <a
+                    class="sample-download"
+                    href="/api/datasets/edge-failure.csv"
+                    download="qubolens-edge-failure.csv"
+                  >
+                    Download all 720 rows
+                  </a>
+                </article>
+                <article class="dataset-choice">
+                  <button
+                    class="dataset-option"
+                    type="button"
+                    data-dataset="cloud-cost"
+                    data-features="16"
+                    aria-pressed="false"
+                  >
+                    <span class="dataset-icon amber" aria-hidden="true">02</span>
+                    <span class="dataset-option-copy">
+                      <small>Numeric prediction · synthetic</small>
+                      <strong>Hourly cloud workload cost</strong>
+                      <em>680 hourly workloads · 16 service inputs</em>
+                    </span>
+                    <span class="radio-mark" aria-hidden="true"></span>
+                  </button>
+                  <a
+                    class="sample-download"
+                    href="/api/datasets/cloud-cost.csv"
+                    download="qubolens-cloud-cost.csv"
+                  >
+                    Download all 680 rows
+                  </a>
+                </article>
               </div>
             </fieldset>
 
-            <article class="scenario-guide" id="scenario-guide">
-              <span class="scenario-label">What is happening?</span>
-              <h3 id="scenario-question">
-                Which sensor readings help predict a device failure?
-              </h3>
-              <p id="scenario-description">
-                This simulated dataset contains 720 device snapshots. Each snapshot
-                has 18 sensor readings, and the goal is to predict whether that device
-                fails within the next 24 hours.
-              </p>
+            <article class="scenario-guide hidden" id="scenario-guide">
+              <div class="scenario-heading">
+                <div>
+                  <span class="scenario-label">Dataset ready</span>
+                  <h3 id="scenario-question">Your prediction question</h3>
+                </div>
+                <a
+                  class="selected-data-download hidden"
+                  id="selected-data-download"
+                  href="#"
+                  download
+                >
+                  Download full CSV
+                </a>
+              </div>
+              <p id="scenario-description"></p>
               <dl class="scenario-facts">
                 <div>
-                  <dt id="scenario-rows">720</dt>
-                  <dd id="scenario-rows-label">device snapshots</dd>
+                  <dt id="scenario-rows">—</dt>
+                  <dd id="scenario-rows-label">rows</dd>
                 </div>
                 <div>
-                  <dt id="scenario-inputs">18</dt>
-                  <dd id="scenario-inputs-label">sensor readings</dd>
+                  <dt id="scenario-columns">—</dt>
+                  <dd id="scenario-columns-label">source columns</dd>
                 </div>
                 <div>
-                  <dt id="scenario-target">Yes / no</dt>
-                  <dd id="scenario-target-label">prediction</dd>
+                  <dt id="scenario-inputs">—</dt>
+                  <dd id="scenario-inputs-label">prepared inputs</dd>
+                </div>
+                <div>
+                  <dt id="scenario-target">—</dt>
+                  <dd id="scenario-target-label">target type</dd>
                 </div>
               </dl>
+              <section class="data-preview" aria-labelledby="preview-title">
+                <div class="data-preview-heading">
+                  <div>
+                    <span>Before preparation</span>
+                    <strong id="preview-title">What the original data looks like</strong>
+                  </div>
+                  <span class="preview-format" id="preview-format">—</span>
+                </div>
+                <p class="preview-columns" id="preview-columns"></p>
+                <div class="preview-scroll">
+                  <table>
+                    <thead id="preview-head"></thead>
+                    <tbody id="preview-body"></tbody>
+                  </table>
+                </div>
+                <div class="prepared-preview">
+                  <span>After preparation · inputs available to QUBO</span>
+                  <p id="preview-prepared">—</p>
+                </div>
+                <p class="preview-note" id="preview-note">
+                  Showing a few raw rows. The complete sample is downloadable above.
+                </p>
+              </section>
             </article>
 
-            <details class="upload-disclosure">
-              <summary>
-                <span>Use my own data file</span>
-                <small>Optional</small>
-              </summary>
-              <div class="upload-content">
-                <label class="upload-zone" for="csv-file">
-                  <input
-                    id="csv-file"
-                    type="file"
-                    accept=".csv,.tsv,.txt,.json,.jsonl,.ndjson,.xlsx,text/csv,text/tab-separated-values,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                  />
-                  <span class="upload-plus" aria-hidden="true">+</span>
-                  <span>
-                    <strong id="upload-label">Choose a data file</strong>
-                    <small>Up to 20 MB · large files sampled safely · never saved</small>
-                  </span>
-                </label>
-                <div class="format-chips" aria-label="Supported file formats">
-                  <span>CSV</span><span>TSV / delimited TXT</span
-                  ><span>JSON / JSONL</span><span>XLSX</span>
-                </div>
-                <p class="upload-help">
-                  Numbers, dates, categories, and free text are prepared
-                  automatically. Text becomes readable measures such as word count,
-                  length, and keyword presence.
-                </p>
-                <p class="upload-inspection hidden" id="upload-inspection"></p>
-                <div class="target-control hidden" id="target-control">
-                  <label for="target-column">What should QUBOLens predict?</label>
-                  <select id="target-column"></select>
-                </div>
-              </div>
-            </details>
-
-            <fieldset>
-              <legend>2 · Choose how many inputs to keep</legend>
+            <fieldset id="budget-fieldset" disabled>
+              <legend>2 · Choose how many prepared inputs to keep</legend>
               <div class="range-heading">
                 <label for="feature-budget">Smaller input set</label>
-                <output id="feature-budget-value" for="feature-budget">6 / 18</output>
+                <output id="feature-budget-value" for="feature-budget">—</output>
               </div>
               <input
                 id="feature-budget"
                 class="range-input"
                 type="range"
                 min="1"
-                max="18"
-                value="6"
+                max="6"
+                value="3"
               />
               <div class="range-scale"><span>fewer inputs</span><span>more inputs</span></div>
               <p class="budget-help" id="budget-help">
-                Keep 6 of 18 inputs. QUBOLens will try to remove 12 without losing
-                useful signal.
+                Choose a dataset first. We will explain how many usable inputs it
+                contains.
               </p>
             </fieldset>
 
-            <details class="advanced-settings">
+            <details class="advanced-settings hidden" id="advanced-settings">
               <summary>
                 <span>Optional settings</span>
                 <small>The defaults work well</small>
@@ -309,16 +386,17 @@
               </div>
             </details>
 
-            <button class="run-button" type="button" id="run-button">
-              <span id="run-button-label">Show me the best 6 inputs</span>
+            <button class="run-button" type="button" id="run-button" disabled>
+              <span id="run-button-label">Choose data to continue</span>
               <span class="button-arrow" aria-hidden="true">↗</span>
             </button>
             <p class="control-footnote">
-              A device-failure result is already shown. Change anything and run again.
+              Results stay hidden until you run the search. Changing the data or
+              settings clears the previous result.
             </p>
           </aside>
 
-          <div class="results-panel" aria-live="polite" aria-busy="true">
+          <div class="results-panel hidden" aria-live="polite" aria-busy="false">
             <div class="result-toolbar">
               <div>
                 <span class="result-status" id="result-status">
@@ -376,7 +454,74 @@
                   <strong id="metric-score-delta">—</strong>
                   <span class="metric-note">same number of inputs</span>
                 </article>
+                <article class="metric-card">
+                  <span class="metric-label">Compared with every input</span>
+                  <strong id="metric-full-delta">—</strong>
+                  <span class="metric-note">quality difference</span>
+                </article>
               </div>
+
+              <article class="algorithm-card">
+                <div class="card-heading">
+                  <div>
+                    <span class="card-kicker">Core quantum-inspired algorithm</span>
+                    <h4>What the QUBO actually optimized</h4>
+                  </div>
+                  <span class="honesty-tag">classical run · QUBO output</span>
+                </div>
+                <p class="algorithm-intro">
+                  Every input becomes a binary choice: keep it or drop it. The
+                  algorithm minimizes one energy score that balances three explicit
+                  goals.
+                </p>
+                <div class="qubo-equation" id="qubo-formula">
+                  lower energy = useful inputs + less overlap + exact input limit
+                </div>
+                <div class="algorithm-terms">
+                  <div>
+                    <span>01 · Reward</span>
+                    <strong>Target connection</strong>
+                    <p>Favor inputs that move with the outcome being predicted.</p>
+                  </div>
+                  <div>
+                    <span>02 · Penalty</span>
+                    <strong>Repeated information</strong>
+                    <p>Avoid spending the limit on inputs that tell the same story.</p>
+                  </div>
+                  <div>
+                    <span>03 · Constraint</span>
+                    <strong>Your exact limit</strong>
+                    <p>Penalize every solution that keeps too many or too few inputs.</p>
+                  </div>
+                </div>
+                <div class="algorithm-checks" aria-label="Optimization validation">
+                  <div>
+                    <span>Limit check</span>
+                    <strong id="constraint-check">—</strong>
+                    <small>selected equals requested</small>
+                  </div>
+                  <div>
+                    <span>Valid search attempts</span>
+                    <strong id="feasible-stat">—</strong>
+                    <small>met the exact limit</small>
+                  </div>
+                  <div>
+                    <span>Best QUBO energy</span>
+                    <strong id="qubo-energy">—</strong>
+                    <small>lower is better for this QUBO</small>
+                  </div>
+                  <div>
+                    <span>Possible fixed-size sets</span>
+                    <strong id="metric-space">—</strong>
+                    <small>size of the choice space</small>
+                  </div>
+                </div>
+                <p class="algorithm-honesty">
+                  This prototype solves the QUBO with repeatable simulated
+                  annealing. Download the matrix to reuse the same problem with
+                  another compatible solver.
+                </p>
+              </article>
 
               <article class="selection-card">
                 <div class="card-heading">
@@ -489,16 +634,20 @@
                 <div class="result-details-content">
                   <div class="run-facts">
                     <div>
-                      <span>Possible feature sets</span>
-                      <strong id="metric-space">—</strong>
+                      <span>Validation rows</span>
+                      <strong id="validation-stat">—</strong>
                     </div>
                     <div>
-                      <span>Run time</span>
-                      <strong id="metric-runtime">—</strong>
+                      <span>Cross-validation</span>
+                      <strong id="cv-stat">—</strong>
                     </div>
                     <div>
                       <span>Search effort</span>
                       <strong id="anneal-stat">— attempts</strong>
+                    </div>
+                    <div>
+                      <span>Total run time</span>
+                      <strong id="metric-runtime">—</strong>
                     </div>
                   </div>
                   <div class="chart-grid">

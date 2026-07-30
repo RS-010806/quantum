@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import base64
 import binascii
+import csv
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import io
 import json
 import mimetypes
 import os
@@ -14,6 +16,7 @@ import traceback
 from urllib.parse import unquote, urlparse
 
 from .data import (
+    Dataset,
     MAX_UPLOAD_BYTES,
     inspect_tabular_upload,
     load_csv_dataset,
@@ -92,6 +95,7 @@ class QUBOLensHandler(BaseHTTPRequestHandler):
                             "samples": 720,
                             "features": 18,
                             "default_k": 6,
+                            "download_url": "/api/datasets/edge-failure.csv",
                         },
                         {
                             "slug": "cloud-cost",
@@ -101,10 +105,55 @@ class QUBOLensHandler(BaseHTTPRequestHandler):
                             "samples": 680,
                             "features": 16,
                             "default_k": 6,
+                            "download_url": "/api/datasets/cloud-cost.csv",
                         },
                     ]
                 }
             )
+            return
+        if path.startswith("/api/datasets/"):
+            requested = path.removeprefix("/api/datasets/")
+            wants_csv = requested.endswith(".csv")
+            slug = requested.removesuffix(".csv")
+            if slug not in {"edge-failure", "cloud-cost"}:
+                self._json({"error": "Dataset not found."}, HTTPStatus.NOT_FOUND)
+                return
+            dataset = make_demo(slug)
+            if wants_csv:
+                self._demo_csv(dataset, slug)
+            else:
+                self._json(
+                    {
+                        "slug": slug,
+                        "name": dataset.name,
+                        "question": dataset.question,
+                        "description": dataset.description,
+                        "target": dataset.target_name,
+                        "target_description": dataset.target_description,
+                        "task": dataset.task,
+                        "samples": dataset.n_samples,
+                        "features": dataset.n_features,
+                        "feature_names": list(dataset.feature_names),
+                        "notes": list(dataset.notes),
+                        "preview": [
+                            {
+                                **{
+                                    name: round(value, 4)
+                                    for name, value in zip(
+                                        dataset.feature_names, row
+                                    )
+                                },
+                                dataset.target_name: (
+                                    int(dataset.target[index])
+                                    if dataset.task == "classification"
+                                    else round(dataset.target[index], 4)
+                                ),
+                            }
+                            for index, row in enumerate(dataset.rows[:4])
+                        ],
+                        "download_url": f"/api/datasets/{slug}.csv",
+                    }
+                )
             return
         self._serve_static(path)
 
@@ -183,6 +232,35 @@ class QUBOLensHandler(BaseHTTPRequestHandler):
         if len(content) > MAX_UPLOAD_BYTES:
             raise ValueError("The uploaded file is larger than the 20 MB limit.")
         return content, filename
+
+    def _demo_csv(self, dataset: Dataset, slug: str) -> None:
+        stream = io.StringIO(newline="")
+        writer = csv.writer(stream)
+        writer.writerow([*dataset.feature_names, dataset.target_name])
+        for index, row in enumerate(dataset.rows):
+            target = dataset.target[index]
+            writer.writerow(
+                [
+                    *(f"{value:.10g}" for value in row),
+                    (
+                        int(target)
+                        if dataset.task == "classification"
+                        else f"{target:.10g}"
+                    ),
+                ]
+            )
+        body = stream.getvalue().encode("utf-8")
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/csv; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header(
+            "Content-Disposition",
+            f'attachment; filename="qubolens-{slug}.csv"',
+        )
+        self.send_header("Cache-Control", "public, max-age=3600")
+        self._security_headers()
+        self.end_headers()
+        self.wfile.write(body)
 
     def _serve_static(self, requested_path: str) -> None:
         relative = unquote(requested_path).lstrip("/") or "index.html"
