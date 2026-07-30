@@ -1032,39 +1032,26 @@ function initializePointerGlow() {
   window.addEventListener(
     "pointermove",
     (event) => {
+      const interactive =
+        event.target instanceof Element &&
+        Boolean(event.target.closest("button, a, input, select, summary, label"));
+      if (!interactive) {
+        glow.classList.remove("visible", "interactive");
+        return;
+      }
       x = event.clientX;
       y = event.clientY;
       if (!positioned) {
         positionGlow();
         positioned = true;
       }
-      glow.classList.add("visible");
-      glow.classList.toggle(
-        "interactive",
-        event.target instanceof Element &&
-          Boolean(event.target.closest("button, a, input, select, summary, label")),
-      );
+      glow.classList.add("visible", "interactive");
       if (!frame) frame = window.requestAnimationFrame(positionGlow);
     },
     { passive: true },
   );
-  window.addEventListener(
-    "pointerdown",
-    (event) => {
-      x = event.clientX;
-      y = event.clientY;
-      positionGlow();
-      glow.classList.add("visible", "pressed");
-    },
-    { passive: true },
-  );
-  window.addEventListener(
-    "pointerup",
-    () => glow.classList.remove("pressed"),
-    { passive: true },
-  );
   document.documentElement.addEventListener("mouseleave", () =>
-    glow.classList.remove("visible"),
+    glow.classList.remove("visible", "interactive"),
   );
 }
 

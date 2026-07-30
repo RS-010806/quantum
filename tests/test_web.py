@@ -55,6 +55,8 @@ class WebInterfaceTests(unittest.TestCase):
         self.assertIn("30_000", self.script)
         self.assertIn("z-index: 9999", self.styles)
         self.assertIn(".pointer-glow.interactive", self.styles)
+        self.assertIn("width: 28px", self.styles)
+        self.assertNotIn('"pointerdown"', self.script)
         pointer_rule = self.styles.split(".pointer-glow {", 1)[1].split(
             ".pointer-glow.visible", 1
         )[0]
