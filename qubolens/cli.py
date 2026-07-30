@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 import sys
 
-from .data import load_csv_dataset, make_demo
+from .data import load_tabular_dataset, make_demo
 from .pipeline import optimize_dataset
 
 
@@ -17,14 +17,23 @@ def build_parser() -> argparse.ArgumentParser:
         description="Visual feature selection with a built-in optimizer.",
     )
     source = parser.add_mutually_exclusive_group()
-    source.add_argument("--csv", type=Path, help="Path to a CSV with a header row.")
+    source.add_argument(
+        "--file",
+        type=Path,
+        help="CSV, TSV, TXT, JSON, JSONL, or XLSX data file.",
+    )
+    source.add_argument(
+        "--csv",
+        type=Path,
+        help="CSV data file (kept as a backward-compatible alias).",
+    )
     source.add_argument(
         "--demo",
         choices=("edge-failure", "cloud-cost"),
         default="edge-failure",
         help="Built-in seeded dataset (default: edge-failure).",
     )
-    parser.add_argument("--target", help="Target column; required with --csv.")
+    parser.add_argument("--target", help="Target column; required with a data file.")
     parser.add_argument(
         "--task",
         choices=("auto", "classification", "regression"),
@@ -45,14 +54,16 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        if args.csv:
+        upload_path = args.file or args.csv
+        if upload_path:
             if not args.target:
-                raise ValueError("--target is required when --csv is used.")
-            dataset = load_csv_dataset(
-                args.csv.read_text(encoding="utf-8"),
+                raise ValueError("--target is required when a file is used.")
+            dataset = load_tabular_dataset(
+                upload_path.read_bytes(),
+                filename=upload_path.name,
                 target_name=args.target,
                 task=args.task,
-                name=args.csv.stem,
+                name=upload_path.stem,
             )
         else:
             dataset = make_demo(args.demo)

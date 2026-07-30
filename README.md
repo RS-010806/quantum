@@ -17,7 +17,7 @@ rewarding repeated information.
 ## What you can do
 
 - Start with a guided device-reliability or cloud-operations question.
-- Upload a CSV for binary classification or regression.
+- Upload CSV, TSV, delimited text, JSON, JSONL, or XLSX data.
 - Choose exactly how many features to keep.
 - Compare the chosen set with a simple ranking and the full dataset.
 - See each chosen input, its connection to the target, and its overlap with the
@@ -95,18 +95,25 @@ matches always predicting the average and `1.00` is perfect.
 
 In the web app:
 
-1. Open **Use my own CSV** and choose a file.
+1. Open **Use my own data file** and choose a file.
 2. Choose the column you want to predict.
 3. Set the number of features to keep.
 4. Select **Analyze the best inputs**.
 
-CSV limits:
+Upload support:
 
-- 30–2,500 rows
-- 2–40 feature columns
-- up to 2.5 MB
-- numeric or categorical feature values
+- CSV, TSV, comma/tab/semicolon/pipe-delimited text, JSON, JSONL, and XLSX
+- files up to 20 MB
+- at least 30 rows with a prediction target
+- up to 100 source columns and 40 prepared inputs
+- numeric, date, categorical, and free-text input values
 - a two-class or numeric target
+
+Large files are accepted and analyzed through a repeatable sample of up to 5,000
+rows so the interactive run remains responsive. Numbers are median-filled,
+dates become time values, categories become indicator columns, and free text
+becomes transparent length, word-count, vocabulary, digit, and common-keyword
+measures. Likely identifier columns are skipped.
 
 ## Command line
 
@@ -116,10 +123,10 @@ Run an included example:
 python3 -m qubolens --demo edge-failure -k 6 --quality fast
 ```
 
-Run a CSV and save the result:
+Run any supported data file and save the result:
 
 ```bash
-python3 -m qubolens --csv measurements.csv --target outcome -k 8 \
+python3 -m qubolens --file measurements.xlsx --target outcome -k 8 \
   --quality balanced --output result.json
 ```
 
@@ -156,7 +163,7 @@ enabled later from the service settings.
 | `qubolens/server.py` | Web server and JSON endpoints |
 | `qubolens/pipeline.py` | Runs selection, comparison, and result creation |
 | `qubolens/core.py` | Builds and searches the feature-selection problem |
-| `qubolens/data.py` | Example datasets and CSV preparation |
+| `qubolens/data.py` | Example datasets, file parsing, and data preparation |
 | `qubolens/evaluate.py` | Uses the same model checks for every feature set |
 | `tests/` | Unit and end-to-end tests |
 | `docs/` | Project brief and technical explanation |
@@ -169,8 +176,8 @@ python3 -m unittest discover -s tests -v
 python3 -m compileall -q qubolens
 ```
 
-The tests cover the selection math, repeatable results, CSV handling, feature
-limits, and the complete result format.
+The tests cover selection math, repeatable results, delimited text, JSONL,
+XLSX, large-file sampling, feature limits, and the complete result format.
 
 ## Research basis
 
@@ -190,6 +197,8 @@ QUBOLens is informed by:
 - Treat the scores as a way to explore a direction, not as final production
   validation.
 - Correlation does not capture every nonlinear relationship.
+- Text support uses transparent structural and keyword measures, not language
+  embeddings.
 - Test the selected features on data that was not used during selection.
 - The included search runs without quantum hardware; the QUBO can be exported
   for other compatible methods.

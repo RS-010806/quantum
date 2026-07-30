@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -11,13 +13,19 @@ from pathlib import Path
 import traceback
 from urllib.parse import unquote, urlparse
 
-from .data import load_csv_dataset, make_demo
+from .data import (
+    MAX_UPLOAD_BYTES,
+    inspect_tabular_upload,
+    load_csv_dataset,
+    load_tabular_dataset,
+    make_demo,
+)
 from .pipeline import optimize_dataset
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 WEB_ROOT = Path(__file__).resolve().parent / "web"
-MAX_BODY_BYTES = 3_000_000
+MAX_BODY_BYTES = 28_000_000
 
 
 class QUBOLensHandler(BaseHTTPRequestHandler):
@@ -58,7 +66,7 @@ class QUBOLensHandler(BaseHTTPRequestHandler):
         if length <= 0:
             raise ValueError("Request body is required.")
         if length > MAX_BODY_BYTES:
-            raise ValueError("Request is larger than the 3 MB API limit.")
+            raise ValueError("Request is larger than the 28 MB API limit.")
         try:
             payload = json.loads(self.rfile.read(length))
         except (json.JSONDecodeError, UnicodeDecodeError) as error:
@@ -101,13 +109,36 @@ class QUBOLensHandler(BaseHTTPRequestHandler):
         self._serve_static(path)
 
     def do_POST(self) -> None:
-        if urlparse(self.path).path != "/api/optimize":
+        path = urlparse(self.path).path
+        if path not in {"/api/inspect", "/api/optimize"}:
             self._json({"error": "Not found."}, HTTPStatus.NOT_FOUND)
             return
         try:
             payload = self._read_json()
+            if path == "/api/inspect":
+                content, filename = self._upload_content(payload)
+                self._json(
+                    inspect_tabular_upload(
+                        content,
+                        filename,
+                        target_name=str(payload.get("target", "")).strip(),
+                    )
+                )
+                return
             source = str(payload.get("source", "demo"))
-            if source == "csv":
+            if source == "upload":
+                content, filename = self._upload_content(payload)
+                target = str(payload.get("target", "")).strip()
+                if not target:
+                    raise ValueError("Choose the column you want to predict.")
+                dataset = load_tabular_dataset(
+                    content,
+                    filename=filename,
+                    target_name=target,
+                    task=str(payload.get("task", "auto")),
+                    name=str(payload.get("name", "Uploaded data"))[:80],
+                )
+            elif source == "csv":
                 csv_text = payload.get("csv")
                 target = str(payload.get("target", "")).strip()
                 if not isinstance(csv_text, str) or not target:
@@ -121,7 +152,7 @@ class QUBOLensHandler(BaseHTTPRequestHandler):
             elif source == "demo":
                 dataset = make_demo(str(payload.get("dataset", "edge-failure")))
             else:
-                raise ValueError("source must be demo or csv.")
+                raise ValueError("source must be demo, upload, or csv.")
             result = optimize_dataset(
                 dataset,
                 k=int(payload.get("k", 6)),
@@ -138,6 +169,20 @@ class QUBOLensHandler(BaseHTTPRequestHandler):
                 {"error": "The experiment failed unexpectedly."},
                 HTTPStatus.INTERNAL_SERVER_ERROR,
             )
+
+    @staticmethod
+    def _upload_content(payload: dict[str, object]) -> tuple[bytes, str]:
+        encoded = payload.get("file")
+        filename = str(payload.get("filename", "uploaded-data.csv"))[:160]
+        if not isinstance(encoded, str) or not encoded:
+            raise ValueError("Choose a data file first.")
+        try:
+            content = base64.b64decode(encoded, validate=True)
+        except (ValueError, binascii.Error) as error:
+            raise ValueError("The uploaded file could not be decoded.") from error
+        if len(content) > MAX_UPLOAD_BYTES:
+            raise ValueError("The uploaded file is larger than the 20 MB limit.")
+        return content, filename
 
     def _serve_static(self, requested_path: str) -> None:
         relative = unquote(requested_path).lstrip("/") or "index.html"

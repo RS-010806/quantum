@@ -6,8 +6,9 @@
 
 ### What it is
 
-QUBOLens is an open-source feature selection lab. A user uploads a CSV or opens
-a sample dataset, chooses how many inputs to keep, and gets a clear result that
+QUBOLens is an open-source feature selection lab. A user uploads a common
+tabular data file or opens a sample dataset, chooses how many inputs to keep,
+and gets a clear result that
 balances:
 
 1. **predictive relevance** — keep signals related to the target;

@@ -1,9 +1,11 @@
 const state = {
   source: "demo",
   dataset: "edge-failure",
-  csvText: "",
-  csvName: "",
+  fileBase64: "",
+  fileName: "",
   headers: [],
+  inspection: null,
+  uploadError: "",
   result: null,
   running: false,
 };
@@ -53,6 +55,7 @@ const elements = {
   content: $("#results-content"),
   file: $("#csv-file"),
   uploadLabel: $("#upload-label"),
+  uploadInspection: $("#upload-inspection"),
   targetControl: $("#target-control"),
   target: $("#target-column"),
   results: $(".results-panel"),
@@ -93,10 +96,14 @@ function updateBudgetLabel() {
 function updateRunLabel() {
   if (state.running) return;
   const kept = Number(elements.budget.value);
-  elements.runLabel.textContent =
-    state.source === "csv"
-      ? `Analyze the best ${kept} inputs`
-      : `Show me the best ${kept} inputs`;
+  if (state.source === "upload" && state.uploadError) {
+    elements.runLabel.textContent = "Choose a different target";
+  } else {
+    elements.runLabel.textContent =
+      state.source === "upload"
+        ? `Analyze the best ${kept} inputs`
+        : `Show me the best ${kept} inputs`;
+  }
 }
 
 function updateScenario(scenario) {
@@ -131,10 +138,14 @@ function selectDemo(button) {
   button.setAttribute("aria-pressed", "true");
   state.source = "demo";
   state.dataset = button.dataset.dataset;
-  state.csvText = "";
+  state.fileBase64 = "";
+  state.fileName = "";
   state.headers = [];
+  state.inspection = null;
+  state.uploadError = "";
   elements.file.value = "";
-  elements.uploadLabel.textContent = "Choose a CSV file";
+  elements.uploadLabel.textContent = "Choose a data file";
+  elements.uploadInspection.classList.add("hidden");
   elements.targetControl.classList.add("hidden");
   elements.budget.max = button.dataset.features;
   elements.budget.value = Math.min(6, Number(button.dataset.features));
@@ -143,96 +154,121 @@ function selectDemo(button) {
   markSettingsChanged();
 }
 
-function parseCSVLine(line) {
-  const values = [];
-  let value = "";
-  let quoted = false;
-  for (let index = 0; index < line.length; index += 1) {
-    const character = line[index];
-    if (character === '"') {
-      if (quoted && line[index + 1] === '"') {
-        value += '"';
-        index += 1;
-      } else {
-        quoted = !quoted;
-      }
-    } else if (character === "," && !quoted) {
-      values.push(value.trim());
-      value = "";
-    } else {
-      value += character;
-    }
-  }
-  values.push(value.trim());
-  return values;
-}
-
 function updateUploadedScenario() {
-  if (state.source !== "csv") return;
-  const target = elements.target.value || state.headers[state.headers.length - 1];
-  const rowCount = Math.max(
-    0,
-    state.csvText.split(/\r?\n/).filter((line) => line.trim()).length - 1,
-  );
+  if (state.source !== "upload" || !state.inspection) return;
+  const inspection = state.inspection;
+  const target = elements.target.value || inspection.target;
+  const prepared = Number(inspection.prepared_features || 0);
+  const taskLabel =
+    inspection.task === "classification"
+      ? "Yes / no"
+      : inspection.task === "regression"
+        ? "Number"
+        : "Check target";
   updateScenario({
     question: `Which inputs best predict ${humanizeFeatureName(target)}?`,
     description:
-      `Your CSV contains ${rowCount.toLocaleString()} data rows and ` +
-      `${Math.max(0, state.headers.length - 1)} possible input columns. ` +
-      "Choose what to predict, then QUBOLens will test a smaller input set.",
-    rows: rowCount.toLocaleString(),
+      inspection.description ||
+      `QUBOLens detected ${Number(inspection.rows).toLocaleString()} rows and will prepare numbers, dates, categories, and text automatically.`,
+    rows: Number(inspection.rows).toLocaleString(),
     rowsLabel: "data rows",
-    inputs: String(Math.max(0, state.headers.length - 1)),
-    inputsLabel: "possible inputs",
-    target: humanizeFeatureName(target),
-    targetLabel: "prediction target",
+    inputs: String(prepared),
+    inputsLabel: "prepared inputs",
+    target: taskLabel,
+    targetLabel: "target type",
   });
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",", 2)[1] || "");
+    reader.onerror = () => reject(new Error("The file could not be read."));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function inspectCurrentUpload(target = "") {
+  const response = await fetch("/api/inspect", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      file: state.fileBase64,
+      filename: state.fileName,
+      target,
+    }),
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.error || "The file could not be inspected.");
+  }
+  state.inspection = payload;
+  state.uploadError = payload.target_error || "";
+  state.headers = payload.columns;
+  elements.budget.max = Math.max(1, Number(payload.prepared_features));
+  elements.budget.value = Math.min(
+    Number(elements.budget.value),
+    Number(elements.budget.max),
+    6,
+  );
+  elements.uploadInspection.textContent = state.uploadError
+    ? `${payload.format} detected · ${Number(payload.rows).toLocaleString()} rows · ${state.uploadError}`
+    : `${payload.format} detected · ${Number(payload.rows).toLocaleString()} rows · ${Number(
+        payload.prepared_features,
+      )} prepared inputs`;
+  elements.uploadInspection.classList.toggle("warning", Boolean(state.uploadError));
+  elements.uploadInspection.classList.remove("hidden");
+  updateBudgetLabel();
+  updateUploadedScenario();
 }
 
 async function handleFile(file) {
   if (!file) return;
-  if (file.size > 2_500_000) {
-    showError("That CSV is larger than the 2.5 MB interactive limit.");
+  if (file.size > 20_000_000) {
+    showError("That file is larger than the 20 MB interactive limit.");
     elements.file.value = "";
     return;
   }
-  const text = await file.text();
-  const firstLine = text.replace(/^\uFEFF/, "").split(/\r?\n/, 1)[0];
-  const headers = parseCSVLine(firstLine).filter(Boolean);
-  if (headers.length < 3) {
-    showError("The CSV needs a header, at least two features, and one target.");
+  elements.uploadLabel.textContent = `Reading ${file.name}…`;
+  elements.uploadInspection.textContent = "Detecting rows, columns, and data types…";
+  elements.uploadInspection.classList.remove("hidden", "warning");
+  elements.run.disabled = true;
+  try {
+    const encoded = await fileToBase64(file);
+    state.fileBase64 = encoded;
+    state.fileName = file.name;
+    state.source = "upload";
+    elements.budget.value = 6;
+    await inspectCurrentUpload();
+  } catch (error) {
+    state.source = "demo";
+    state.fileBase64 = "";
+    state.fileName = "";
+    state.inspection = null;
     elements.file.value = "";
+    elements.uploadLabel.textContent = "Choose a data file";
+    elements.uploadInspection.classList.add("hidden");
+    showError(error.message || "The file could not be read.");
     return;
+  } finally {
+    elements.run.disabled = false;
   }
-  if (headers.length - 1 > 40) {
-    showError("The interactive lab accepts up to 40 feature columns.");
-    elements.file.value = "";
-    return;
-  }
-  state.source = "csv";
-  state.csvText = text;
-  state.csvName = file.name.replace(/\.csv$/i, "");
-  state.headers = headers;
   $$(".dataset-option").forEach((option) => {
     option.classList.remove("active");
     option.setAttribute("aria-pressed", "false");
   });
   elements.uploadLabel.textContent = file.name;
   elements.target.replaceChildren();
-  headers.forEach((header, index) => {
+  state.headers.forEach((header) => {
     const option = document.createElement("option");
     option.value = header;
     option.textContent = header;
-    if (index === headers.length - 1) option.selected = true;
+    if (header === state.inspection.target) option.selected = true;
     elements.target.append(option);
   });
   elements.targetControl.classList.remove("hidden");
-  elements.budget.max = Math.min(40, headers.length - 1);
-  elements.budget.value = Math.min(6, Number(elements.budget.max));
-  updateUploadedScenario();
-  updateBudgetLabel();
   elements.resultStatus.innerHTML =
-    '<span class="pulse-dot" aria-hidden="true"></span>CSV ready · run to analyze';
+    '<span class="pulse-dot" aria-hidden="true"></span>Data ready · run to analyze';
 }
 
 function selectedQuality() {
@@ -246,12 +282,13 @@ function buildPayload() {
     quality: selectedQuality(),
     seed: 42,
   };
-  if (state.source === "csv") {
+  if (state.source === "upload") {
     return {
       ...common,
-      source: "csv",
-      csv: state.csvText,
-      name: state.csvName || "Uploaded CSV",
+      source: "upload",
+      file: state.fileBase64,
+      filename: state.fileName,
+      name: state.fileName.replace(/\.[^.]+$/, "") || "Uploaded data",
       target: elements.target.value,
       task: "auto",
     };
@@ -284,8 +321,12 @@ function startProgress() {
 
 async function runExperiment() {
   if (state.running) return;
-  if (state.source === "csv" && (!state.csvText || !elements.target.value)) {
-    showError("Choose a CSV and target column first.");
+  if (state.source === "upload" && (!state.fileBase64 || !elements.target.value)) {
+    showError("Choose a data file and prediction target first.");
+    return;
+  }
+  if (state.source === "upload" && state.uploadError) {
+    showError(state.uploadError);
     return;
   }
   state.running = true;
@@ -717,6 +758,42 @@ function drawHero(time = 0) {
   }
 }
 
+function initializePointerGlow() {
+  const glow = $("#pointer-glow");
+  if (!glow) return;
+  let frame = 0;
+  let x = 0;
+  let y = 0;
+  const positionGlow = () => {
+    glow.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`;
+    frame = 0;
+  };
+  window.addEventListener(
+    "pointermove",
+    (event) => {
+      x = event.clientX;
+      y = event.clientY;
+      glow.classList.add("visible");
+      if (!frame) frame = window.requestAnimationFrame(positionGlow);
+    },
+    { passive: true },
+  );
+  window.addEventListener(
+    "pointerdown",
+    (event) => {
+      x = event.clientX;
+      y = event.clientY;
+      positionGlow();
+      glow.classList.add("visible", "pressed");
+      window.setTimeout(() => glow.classList.remove("pressed"), 360);
+    },
+    { passive: true },
+  );
+  document.documentElement.addEventListener("mouseleave", () =>
+    glow.classList.remove("visible"),
+  );
+}
+
 elements.budget.addEventListener("input", () => {
   updateBudgetLabel();
   markSettingsChanged();
@@ -724,9 +801,21 @@ elements.budget.addEventListener("input", () => {
 elements.redundancy.addEventListener("input", updateRedundancyLabel);
 elements.run.addEventListener("click", runExperiment);
 elements.file.addEventListener("change", (event) => handleFile(event.target.files[0]));
-elements.target.addEventListener("change", () => {
-  updateUploadedScenario();
-  markSettingsChanged("Target changed · run to update");
+elements.target.addEventListener("change", async () => {
+  elements.run.disabled = true;
+  elements.uploadInspection.textContent = "Checking this prediction target…";
+  elements.uploadInspection.classList.remove("warning");
+  try {
+    await inspectCurrentUpload(elements.target.value);
+    markSettingsChanged("Target changed · run to update");
+  } catch (error) {
+    state.uploadError = error.message || "This prediction target could not be checked.";
+    elements.uploadInspection.textContent = state.uploadError;
+    elements.uploadInspection.classList.add("warning");
+    showError(state.uploadError);
+  } finally {
+    elements.run.disabled = false;
+  }
 });
 $$(".dataset-option").forEach((button) =>
   button.addEventListener("click", () => selectDemo(button)),
@@ -763,5 +852,6 @@ window.addEventListener("resize", () => {
 updateScenario(SCENARIOS[state.dataset]);
 updateBudgetLabel();
 updateRedundancyLabel();
+initializePointerGlow();
 window.requestAnimationFrame(drawHero);
 runExperiment();

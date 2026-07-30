@@ -113,18 +113,25 @@ def _fit_linear(
 
 
 def _auc(labels: list[float], scores: list[float]) -> float:
-    positives = [score for label, score in zip(labels, scores) if label == 1.0]
-    negatives = [score for label, score in zip(labels, scores) if label == 0.0]
-    if not positives or not negatives:
+    pairs = sorted(zip(scores, labels), key=lambda item: item[0])
+    positive_count = sum(label == 1.0 for label in labels)
+    negative_count = len(labels) - positive_count
+    if not positive_count or not negative_count:
         return 0.5
-    wins = 0.0
-    for positive in positives:
-        for negative in negatives:
-            if positive > negative:
-                wins += 1.0
-            elif positive == negative:
-                wins += 0.5
-    return wins / (len(positives) * len(negatives))
+    positive_rank_sum = 0.0
+    start = 0
+    while start < len(pairs):
+        end = start + 1
+        while end < len(pairs) and pairs[end][0] == pairs[start][0]:
+            end += 1
+        average_rank = ((start + 1) + end) / 2
+        positive_rank_sum += average_rank * sum(
+            label == 1.0 for _, label in pairs[start:end]
+        )
+        start = end
+    return (
+        positive_rank_sum - positive_count * (positive_count + 1) / 2
+    ) / (positive_count * negative_count)
 
 
 def evaluate_subset(

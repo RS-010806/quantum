@@ -1,7 +1,7 @@
 # Security
 
-QUBOLens stores no application data. CSV uploads are size-limited, processed in
-memory, and not saved.
+QUBOLens stores no application data. Data-file uploads are size-limited,
+processed in memory, and not saved.
 
 To report a vulnerability, open a private security advisory in the GitHub
 repository. Do not attach sensitive datasets.

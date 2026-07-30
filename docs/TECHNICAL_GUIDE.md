@@ -16,12 +16,11 @@ the result, the comparison, and the search behavior in one place.
 
 ## User flow
 
-1. Open an included dataset or upload a CSV.
+1. Open an included dataset or upload a supported data file.
 2. Choose how many features to keep.
-3. Adjust the preference for less repeated information.
-4. Choose a quick, balanced, or thorough search.
-5. Review the chosen features and comparison charts.
-6. Download the result or optimization matrix.
+3. Run the prepared default search.
+4. Review the answer, chosen inputs, and comparison.
+5. Open optional settings or technical charts only when needed.
 
 The edge-failure example runs automatically when the page opens.
 
@@ -47,7 +46,7 @@ stay in memory.
 quantum/
 ├── qubolens/
 │   ├── core.py          feature statistics, QUBO construction, search
-│   ├── data.py          included datasets and CSV preparation
+│   ├── data.py          included datasets and upload preparation
 │   ├── evaluate.py      model training and comparison scores
 │   ├── pipeline.py      complete feature-selection workflow
 │   ├── server.py        web server, static files, and JSON API
@@ -109,17 +108,23 @@ used later with another compatible optimizer.
 
 ## Data preparation
 
-CSV uploads support:
+Uploads support:
 
-- UTF-8 files with a header row;
-- 30–2,500 rows;
-- 2–40 feature columns;
-- files up to 2.5 MB;
-- numeric and categorical features;
+- CSV, TSV, delimited TXT, JSON, JSONL, NDJSON, and XLSX;
+- UTF-8, UTF-16, or Windows-1252 text;
+- files up to 20 MB;
+- up to 100 source columns and 40 prepared inputs;
+- a repeatable sample of up to 5,000 rows for large files;
+- numeric, date, categorical, and free-text inputs;
 - binary classification or numeric regression targets.
 
-Missing numeric values use the column median. Missing categories use the most
-common category. Constant columns are removed and reported in the result.
+Missing numeric values use the column median. Dates become numeric time values.
+Low-cardinality categories become indicator columns. Free text becomes
+interpretable length, word-count, vocabulary-variety, digit-share, and
+common-keyword measures. Likely identifiers, empty columns, and constant
+columns are removed and reported in the result. If preparation creates more
+than 40 inputs, the 40 strongest target links continue to the interactive
+selection.
 
 Target connection is measured with absolute correlation and scaled to
 \([0,1]\). Feature overlap is the absolute pairwise correlation.
@@ -173,7 +178,13 @@ Example:
 }
 ```
 
-CSV requests use `source: "csv"` and add `csv`, `target`, `task`, and `name`.
+The browser first sends the encoded file and optional target to
+`POST /api/inspect`. The response describes the detected format, row count,
+columns, target type, and prepared input count.
+
+Upload optimization requests use `source: "upload"` and add `file` (base64),
+`filename`, `target`, `task`, and `name`. The earlier `source: "csv"` request
+shape remains available for compatibility.
 
 The response contains dataset details, selected features, comparisons, charts,
 the reusable matrix, timing, a plain-language observation, and a validation

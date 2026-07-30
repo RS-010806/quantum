@@ -6,7 +6,7 @@ import math
 import time
 
 from .core import build_feature_qubo, feature_statistics, solve_qubo
-from .data import Dataset
+from .data import MAX_MODEL_FEATURES, Dataset
 from .evaluate import evaluate_subset
 
 
@@ -63,8 +63,10 @@ def optimize_dataset(
 ) -> dict[str, object]:
     """Run the complete QUBO selection, baseline, and diagnostic evaluation."""
 
-    if dataset.n_features > 40:
-        raise ValueError("Interactive runs support at most 40 features.")
+    if dataset.n_features > MAX_MODEL_FEATURES:
+        raise ValueError(
+            f"Interactive runs support at most {MAX_MODEL_FEATURES} prepared inputs."
+        )
     if quality not in QUALITY:
         raise ValueError("quality must be fast, balanced, or deep.")
     if not 1 <= k <= dataset.n_features:

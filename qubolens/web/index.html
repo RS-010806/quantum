@@ -20,6 +20,7 @@
     <script src="/app.js" defer></script>
   </head>
   <body>
+    <div class="pointer-glow" id="pointer-glow" aria-hidden="true"></div>
     <a class="skip-link" href="#lab">Skip to experiment</a>
     <header class="site-header">
       <a class="brand" href="#" aria-label="QUBOLens home">
@@ -215,18 +216,32 @@
 
             <details class="upload-disclosure">
               <summary>
-                <span>Use my own CSV</span>
+                <span>Use my own data file</span>
                 <small>Optional</small>
               </summary>
               <div class="upload-content">
                 <label class="upload-zone" for="csv-file">
-                  <input id="csv-file" type="file" accept=".csv,text/csv" />
+                  <input
+                    id="csv-file"
+                    type="file"
+                    accept=".csv,.tsv,.txt,.json,.jsonl,.ndjson,.xlsx,text/csv,text/tab-separated-values,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  />
                   <span class="upload-plus" aria-hidden="true">+</span>
                   <span>
-                    <strong id="upload-label">Choose a CSV file</strong>
-                    <small>30–2,500 rows · up to 40 inputs · kept in memory</small>
+                    <strong id="upload-label">Choose a data file</strong>
+                    <small>Up to 20 MB · large files sampled safely · never saved</small>
                   </span>
                 </label>
+                <div class="format-chips" aria-label="Supported file formats">
+                  <span>CSV</span><span>TSV / delimited TXT</span
+                  ><span>JSON / JSONL</span><span>XLSX</span>
+                </div>
+                <p class="upload-help">
+                  Numbers, dates, categories, and free text are prepared
+                  automatically. Text becomes readable measures such as word count,
+                  length, and keyword presence.
+                </p>
+                <p class="upload-inspection hidden" id="upload-inspection"></p>
                 <div class="target-control hidden" id="target-control">
                   <label for="target-column">What should QUBOLens predict?</label>
                   <select id="target-column"></select>
@@ -647,8 +662,11 @@
         <span class="brand-mark" aria-hidden="true">Q</span>
         <span>QUBO<span class="brand-light">Lens</span></span>
       </a>
-      <p>Visual feature selection · open source and easy to inspect.</p>
-      <p class="mono">DATA → CHOICE → COMPARISON</p>
+      <p class="creator-credit">
+        <strong>Rishi Shah</strong>
+        <span>© 2026 · QUBOLens · MIT License</span>
+      </p>
+      <p class="mono footer-motto">DATA → CHOICE → COMPARISON</p>
     </footer>
   </body>
 </html>
